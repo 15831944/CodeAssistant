@@ -1,0 +1,188 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{BCD4902D-3209-4EEA-AB55-B042AF75D6C0}</ProjectGuid>
+    <RootNamespace>编程助理</RootNamespace>
+    <Keyword>MFCProj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+    <UseOfMfc>Static</UseOfMfc>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+    <UseOfMfc>Static</UseOfMfc>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Midl>
+      <MkTypLibCompatible>false</MkTypLibCompatible>
+      <ValidateAllParameters>true</ValidateAllParameters>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </Midl>
+    <ResourceCompile>
+      <Culture>0x0804</Culture>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\Shadow\Documents\Visual Studio 2010\Projects\编程助理\编程助理\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <IgnoreSpecificDefaultLibraries>MSVCRT</IgnoreSpecificDefaultLibraries>
+      <AdditionalLibraryDirectories>C:\Users\Shadow\Documents\Visual Studio 2010\Projects\编程助理\编程助理\Library\pthreads\x86;C:\Users\Shadow\Documents\Visual Studio 2010\Projects\编程助理\编程助理\Library\curl;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>./Library/curl/libcurl_ssl_ssh2.lib;./Library/pthreads/x86/pthreadVC2.lib;Sensapi.lib;./Library/json/lib_json.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/IGNORE:4049 %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+    <Midl>
+      <MkTypLibCompatible>false</MkTypLibCompatible>
+      <ValidateAllParameters>true</ValidateAllParameters>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </Midl>
+    <ResourceCompile>
+      <Culture>0x0804</Culture>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <None Include="res\My.rc2" />
+    <None Include="res\编程助理.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AutoCombox.h" />
+    <ClInclude Include="code_base\ControlAnchor.h" />
+    <ClInclude Include="code_base\CustomDrawCommon.h" />
+    <ClInclude Include="code_base\CustomDrawControl.h" />
+    <ClInclude Include="code_base\CustomDrawUtils.h" />
+    <ClInclude Include="CurlDownload.h" />
+    <ClInclude Include="CurlDownloadImpl.h" />
+    <ClInclude Include="EditDlg.h" />
+    <ClInclude Include="GroupDlg.h" />
+    <ClInclude Include="HttpFileEx.h" />
+    <ClInclude Include="LoginDlg.h" />
+    <ClInclude Include="MainDlg.h" />
+    <ClInclude Include="ModifyDlg.h" />
+    <ClInclude Include="NotifyDlg.h" />
+    <ClInclude Include="OleRichEditCtrl.h" />
+    <ClInclude Include="ProjectDlg.h" />
+    <ClInclude Include="RegisterDlg.h" />
+    <ClInclude Include="Resource.h" />
+    <ClInclude Include="SearchDlg.h" />
+    <ClInclude Include="SettingDlg.h" />
+    <ClInclude Include="SortHeaderCtrl.h" />
+    <ClInclude Include="SortListCtrl.h" />
+    <ClInclude Include="SqliteManager.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="SynchronizeDlg.h" />
+    <ClInclude Include="targetver.h" />
+    <ClInclude Include="threadpool.h" />
+    <ClInclude Include="TransmissionDlg.h" />
+    <ClInclude Include="WebEditDlg.h" />
+    <ClInclude Include="WebProjectDlg.h" />
+    <ClInclude Include="编程助理.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="AutoCombox.cpp" />
+    <ClCompile Include="code_base\ControlAnchor.cpp" />
+    <ClCompile Include="code_base\CustomDrawCommon.cpp" />
+    <ClCompile Include="code_base\CustomDrawControl.cpp" />
+    <ClCompile Include="code_base\CustomDrawUtils.cpp" />
+    <ClCompile Include="CurlDownload.cpp" />
+    <ClCompile Include="CurlDownloadImpl.cpp" />
+    <ClCompile Include="EditDlg.cpp" />
+    <ClCompile Include="GroupDlg.cpp" />
+    <ClCompile Include="HttpFileEx.cpp" />
+    <ClCompile Include="LoginDlg.cpp" />
+    <ClCompile Include="MainDlg.cpp" />
+    <ClCompile Include="ModifyDlg.cpp" />
+    <ClCompile Include="NotifyDlg.cpp" />
+    <ClCompile Include="OleRichEditCtrl.cpp" />
+    <ClCompile Include="ProjectDlg.cpp" />
+    <ClCompile Include="RegisterDlg.cpp" />
+    <ClCompile Include="SearchDlg.cpp" />
+    <ClCompile Include="SettingDlg.cpp" />
+    <ClCompile Include="SortHeaderCtrl.cpp" />
+    <ClCompile Include="SortListCtrl.cpp" />
+    <ClCompile Include="SqliteManager.cpp" />
+    <ClCompile Include="stdafx.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="SynchronizeDlg.cpp" />
+    <ClCompile Include="threadpool.cpp" />
+    <ClCompile Include="TransmissionDlg.cpp" />
+    <ClCompile Include="WebEditDlg.cpp" />
+    <ClCompile Include="WebProjectDlg.cpp" />
+    <ClCompile Include="编程助理.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="编程助理.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="sqlite3\sqlite3.vcxproj">
+      <Project>{4a28904f-55db-0e4a-a131-469c203ca271}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+  <ProjectExtensions>
+    <VisualStudio>
+      <UserProperties RESOURCE_FILE="编程助理.rc" />
+    </VisualStudio>
+  </ProjectExtensions>
+</Project>
