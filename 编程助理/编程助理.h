@@ -35,6 +35,9 @@ public:
 
 	// 获取服务器数据
 	CString OnGetWebInfo(CString ServerName, CString ServerPath, int ServerPort, CString Param, BOOL &IsSuccess);
+	
+	// 中文转换
+	CString Convert(string Source);
 
 	// 使用帮助
 	void OnHelp();

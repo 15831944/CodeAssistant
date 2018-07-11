@@ -165,7 +165,7 @@ UINT CSearchDlg::Operate(LPVOID pParam)
 	try
 	{
 		// 从服务器获取数据 www.shadowviolet.cn
-		RecvData = theApp.OnGetWebInfo(_T("Localhost"), pWnd->FilePath, 80, pWnd->Parameter, IsSuccess);
+		RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), pWnd->FilePath, 80, pWnd->Parameter, IsSuccess);
 		if (RecvData == _T("") || RecvData.IsEmpty() || !IsSuccess)
 		{
 			pWnd->Error = _T("无法连接到服务器, 请检查网络。");
@@ -193,7 +193,7 @@ UINT CSearchDlg::Operate(LPVOID pParam)
 						for(int i=0; i < total; i++)
 						{
 							std::string Name  = Items[i][pWnd->Resolve].asString();
-							CString m_Name    = (CString)Name.c_str();
+							CString m_Name    = theApp.Convert(Name);
 
 							pWnd->m_ComboBox.AddString(m_Name);
 						}

@@ -8,14 +8,19 @@
 
 #include "WebEditDlg.h"
 #include "SearchDlg.h"
+#include "TransmissionDlg.h"
+#include "ProjectDlg.h"
 
 // json
 #ifdef _MSC_VER
 #pragma warning (push)
 #pragma warning (disable : 4005)
+#pragma warning (disable : 4482)
+#pragma warning (disable : 4996)
 #include "json/json.h"
 #pragma warning (pop)
 #endif
+
 
 // CWebProjectDlg 对话框
 
@@ -54,7 +59,7 @@ BEGIN_MESSAGE_MAP(CWebProjectDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_DELETE_BUTTON, &CWebProjectDlg::OnDelete)
 	ON_BN_CLICKED(IDC_SWITCH__BUTTON, &CWebProjectDlg::OnSwitch)
 	ON_BN_CLICKED(IDC_ADD_BUTTON, &CWebProjectDlg::OnAdd)
-	ON_BN_CLICKED(IDC_RESTORE_BUTTON, &CWebProjectDlg::OnRestore)
+	ON_BN_CLICKED(IDC_MERGE_BUTTON, &CWebProjectDlg::OnMerge)
 	ON_BN_CLICKED(IDC_MODIFY_BUTTON, &CWebProjectDlg::OnModify)
 	ON_BN_CLICKED(IDC_REMOVE_BUTTON, &CWebProjectDlg::OnRemove)
 	ON_BN_CLICKED(IDC_CLONE_BUTTON, &CWebProjectDlg::OnClone)
@@ -71,6 +76,8 @@ BEGIN_MESSAGE_MAP(CWebProjectDlg, CDialogEx)
 
 	ON_COMMAND(100, &CWebProjectDlg::OnSuccess)
 	ON_COMMAND(101, &CWebProjectDlg::OnError)
+	ON_COMMAND(102, &CWebProjectDlg::AddVersion)
+	ON_COMMAND(103, &CWebProjectDlg::AddProject)
 END_MESSAGE_MAP()
 
 
@@ -106,7 +113,7 @@ BOOL CWebProjectDlg::OnInitDialog()
 		| LVS_EX_SUBITEMIMAGES			          //单击选中项
 		| LVS_EX_GRIDLINES);				      //画出网格线
 
-	m_Version.SetHeadings(_T("修改说明,161;修改时间,150;项目版本-分支,120;修改者,65;项目分支,0;项目编号,0;"));
+	m_Version.SetHeadings(_T("修改说明,161;修改时间,150;项目版本-分支,120;修改者,65;项目分支,0;版本编号,0;"));
 	m_Version.LoadColumnInfo();
 
 	// 字体
@@ -140,6 +147,33 @@ BOOL CWebProjectDlg::PreTranslateMessage(MSG* pMsg)
 }
 
 
+void CWebProjectDlg::CopyDirectory(CString source, CString target)  
+{  
+    CreateDirectory(target,NULL); //创建目标文件夹  
+    //AfxMessageBox("创建文件夹"+target);  
+    CFileFind finder;  
+    CString path;  
+    path.Format(_T("%s/*.*"),source);  
+    //AfxMessageBox(path);  
+    BOOL bWorking =finder.FindFile(path);  
+    while(bWorking)
+    {  
+        bWorking = finder.FindNextFile();  
+        //AfxMessageBox(finder.GetFileName());  
+        if(finder.IsDirectory() && !finder.IsDots())//是文件夹 而且 名称不含 . 或 ..  
+        { 
+            //递归创建文件夹+"/"+finder.GetFileName()
+            CopyDirectory(finder.GetFilePath(),target+"/"+finder.GetFileName());   
+        }  
+        else//是文件 则直接复制 
+        {  
+            //AfxMessageBox("复制文件"+finder.GetFilePath());//+finder.GetFileName()  
+            CopyFile(finder.GetFilePath(),target+"/"+finder.GetFileName(),FALSE);  
+        }  
+    }  
+}
+
+
 // 工作线程
 UINT CWebProjectDlg::Operate(LPVOID pParam)
 {
@@ -161,11 +195,11 @@ UINT CWebProjectDlg::Operate(LPVOID pParam)
 		case 1:
 			{
 				if(pWnd->ProjectType == 2)
-					RecvData = theApp.OnGetWebInfo(_T("Localhost"), _T("index/account/GetProject"), 80, pWnd->Parameter, IsSuccess);
+					RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/GetProject"), 80, pWnd->Parameter, IsSuccess);
 				else if(pWnd->ProjectType == 3)
-					RecvData = theApp.OnGetWebInfo(_T("Localhost"), _T("index/account/GetShareProject"), 80, pWnd->Parameter, IsSuccess);
+					RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/GetShareProject"), 80, pWnd->Parameter, IsSuccess);
 				else
-					RecvData = theApp.OnGetWebInfo(_T("Localhost"), _T("index/account/GetOpenProject"), 80, pWnd->Parameter, IsSuccess);
+					RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/GetOpenProject"), 80, pWnd->Parameter, IsSuccess);
 
 
 				if (RecvData == _T("") || RecvData.IsEmpty() || !IsSuccess)
@@ -204,12 +238,12 @@ UINT CWebProjectDlg::Operate(LPVOID pParam)
 									std::string Role     = Items[i]["Role"].asString();
 									
 
-									CString m_UserId     = (CString)UserId.c_str();
-									CString m_Project    = (CString)Project.c_str();
-									CString m_Version    = (CString)Version.c_str();
-									CString m_Status     = (CString)Status.c_str();
-									CString m_Number     = (CString)Number.c_str();
-									CString m_Role       = (CString)Role.c_str();
+									CString m_UserId     = theApp.Convert(UserId);
+									CString m_Project    = theApp.Convert(Project);
+									CString m_Version    = theApp.Convert(Version);
+									CString m_Status     = theApp.Convert(Status);
+									CString m_Number     = theApp.Convert(Number);
+									CString m_Role       = theApp.Convert(Role);
 
 									// 处理数据
 									if(m_Status == _T("0"))
@@ -239,7 +273,7 @@ UINT CWebProjectDlg::Operate(LPVOID pParam)
 			} break;
 
 		case 2:
-			RecvData = theApp.OnGetWebInfo(_T("Localhost"), _T("index/account/DeleteProject"), 80, pWnd->Parameter, IsSuccess);
+			RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/DeleteProject"), 80, pWnd->Parameter, IsSuccess);
 
 			// 读数据
 			if (RecvData == _T("") || RecvData.IsEmpty() || !IsSuccess)
@@ -269,7 +303,8 @@ UINT CWebProjectDlg::Operate(LPVOID pParam)
 			} break;
 
 		case 3:
-			RecvData = theApp.OnGetWebInfo(_T("Localhost"), _T("index/account/GetVersion"), 80, pWnd->Parameter, IsSuccess);
+			Refresh:
+			RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/GetVersion"), 80, pWnd->Parameter, IsSuccess);
 
 			if (RecvData == _T("") || RecvData.IsEmpty() || !IsSuccess)
 			{
@@ -302,30 +337,16 @@ UINT CWebProjectDlg::Operate(LPVOID pParam)
 								std::string Remark   = Items[i]["Remark"].asString();
 								std::string MTime    = Items[i]["ModifyTime"].asString();
 								std::string Version  = Items[i]["Version"].asString();
-								std::string Editor   = Items[i]["UserName"].asString();
+								std::string Editor   = Items[i]["Editor"].asString();
 								std::string Branch   = Items[i]["Branch"].asString();
 								std::string Number   = Items[i]["VersionId"].asString();
 
-								//解决中文转码问题  
-								int len = strlen(Editor.c_str())+1;  
-								char outch[MAX_PATH];  
-								WCHAR * wChar = new WCHAR[len];  
-								wChar[0] = 0;  
-								MultiByteToWideChar(CP_UTF8, 0, Editor.c_str(), len, wChar, len);  
-								WideCharToMultiByte(CP_ACP, 0, wChar, len, outch , len, 0, 0);  
-								delete [] wChar;  
-								char* pchar = (char*)outch;  
-
-								len=strlen(pchar)+1;  
-								WCHAR outName[MAX_PATH];  
-								MultiByteToWideChar(CP_ACP, 0, pchar, len, outName, len);
-
-								CString m_Remark     = (CString)Remark.c_str();
-								CString m_MTime      = (CString)MTime.c_str();
-								CString m_Version    = (CString)Version.c_str();
-								CString m_Editor     = (CString)outName;
-								CString m_Branch     = (CString)Branch.c_str();
-								CString m_Number     = (CString)Number.c_str();
+								CString m_Remark     = theApp.Convert(Remark);
+								CString m_MTime      = theApp.Convert(MTime);
+								CString m_Version    = theApp.Convert(Version);
+								CString m_Editor     = theApp.Convert(Editor);
+								CString m_Branch     = theApp.Convert(Branch);
+								CString m_Number     = theApp.Convert(Number);
 
 								if(!m_Remark.IsEmpty() && !m_Version.IsEmpty() && !m_MTime.IsEmpty())
 									pWnd->m_Version.AddItem(m_Remark, m_MTime, m_Version + _T("-") + m_Branch, m_Editor, m_Branch, m_Number);
@@ -346,7 +367,7 @@ UINT CWebProjectDlg::Operate(LPVOID pParam)
 			} break;
 
 		case 4:
-			RecvData = theApp.OnGetWebInfo(_T("Localhost"), _T("index/account/RemoveVersion"), 80, pWnd->Parameter, IsSuccess);
+			RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/RemoveVersion"), 80, pWnd->Parameter, IsSuccess);
 
 			// 读数据
 			if (RecvData == _T("") || RecvData.IsEmpty() || !IsSuccess)
@@ -362,6 +383,11 @@ UINT CWebProjectDlg::Operate(LPVOID pParam)
 					{
 						;
 					}
+					else if(RecvData == _T("NotFind"))
+					{
+						pWnd->Error = _T("该版本不存在，无法移除。");
+						pWnd->PostMessage(WM_COMMAND, 101);
+					}
 					else
 					{
 						pWnd->Error = _T("无法移除版本，请稍后再试。");
@@ -374,6 +400,147 @@ UINT CWebProjectDlg::Operate(LPVOID pParam)
 					pWnd->PostMessage(WM_COMMAND, 101);
 				}
 			} break;
+
+			case 5:
+			RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/MergeVersion"), 80, pWnd->Parameter, IsSuccess);
+
+			// 读数据
+			if (RecvData == _T("") || RecvData.IsEmpty() || !IsSuccess)
+			{
+				pWnd->Error = _T("无法连接到服务器, 请检查网络。");
+				pWnd->PostMessage(WM_COMMAND, 101);
+			}
+			else
+			{
+				if (IsSuccess)
+				{
+					if( RecvData == _T("success") )
+					{
+						// 刷新
+						pWnd->Parameter.Format(_T("project_id=%s&user_id=%s"), pWnd->Number, pWnd->UserId);
+						goto Refresh;
+
+					}
+					else if(RecvData == _T("NotFind"))
+					{
+						pWnd->Error = _T("该版本不存在，无法合并。");
+						pWnd->PostMessage(WM_COMMAND, 101);
+					}
+					else if(RecvData == _T("top"))
+					{
+						pWnd->Error = _T("master或develop分支无法合并。");
+						pWnd->PostMessage(WM_COMMAND, 101);
+					}
+					else
+					{
+						pWnd->Error = _T("无法合并版本，请稍后再试。");
+						pWnd->PostMessage(WM_COMMAND, 101);
+					}
+				}
+				else
+				{
+					pWnd->Error = _T("无法连接到服务器, 请检查网络。");
+					pWnd->PostMessage(WM_COMMAND, 101);
+				}
+			} break;
+
+			case 6:
+			{
+				// 创建压缩文件
+				CString CommandLine;
+				CommandLine.Format(_T("a -t7z \"%s\" \"%s\" -r -mmt -mx=9 -ms=1024m -mf -mhc -mhcf -m1=LZMA2:a=2:d=25:fb=64"), pWnd->Version + _T(".7z"), pWnd->Path);
+
+				SHELLEXECUTEINFO ShExecInfo = {0};
+				ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+				ShExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+
+				ShExecInfo.lpFile       = "7z.exe";
+				ShExecInfo.lpDirectory  = "./Application/";
+				ShExecInfo.lpParameters = CommandLine;
+
+				ShExecInfo.nShow = SW_HIDE;
+				ShellExecuteEx(&ShExecInfo);
+
+				AfxGetApp()->BeginWaitCursor();
+				WaitForSingleObject(ShExecInfo.hProcess,INFINITE);
+				AfxGetApp()->EndWaitCursor();
+
+				// 目录检测
+				CString FilePath = _T("./Cache/") + pWnd->Project;
+				if (GetFileAttributes(FilePath) == 0xFFFFFFFF)     //文件夹不存在
+				{
+					// 创建目录
+					CreateDirectory(FilePath, NULL);
+				}
+
+				FilePath = _T("./Cache/") + pWnd->Project + _T("/") + pWnd->Type;
+				if (GetFileAttributes(FilePath) == 0xFFFFFFFF)     //文件夹不存在
+				{
+					// 创建目录
+					CreateDirectory(FilePath, NULL);
+				}
+
+				// 移动目标
+				if(!MoveFileEx(_T("./Application/") + pWnd->Version + _T(".7z"), _T("./Cache/") + pWnd->Project + _T("/") + pWnd->Type + _T("/") + pWnd->Version + _T(".7z"), MOVEFILE_REPLACE_EXISTING))
+				{
+					AfxMessageBox(_T("移动目标失败!"));
+				}
+				else
+				{
+					// 后续处理
+					pWnd->PostMessage(WM_COMMAND, 102);
+				}
+
+			}break;
+
+			case 7:
+			{
+				// 创建压缩文件
+				CString CommandLine;
+				CommandLine.Format(_T("a -t7z \"%s\" \"%s\" -r -mmt -mx=9 -ms=1024m -mf -mhc -mhcf -m1=LZMA2:a=2:d=25:fb=64"), _T("Default.7z"), pWnd->Path);
+
+				SHELLEXECUTEINFO ShExecInfo = {0};
+				ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+				ShExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+
+				ShExecInfo.lpFile       = "7z.exe";
+				ShExecInfo.lpDirectory  = "./Application/";
+				ShExecInfo.lpParameters = CommandLine;
+
+				ShExecInfo.nShow = SW_HIDE;
+				ShellExecuteEx(&ShExecInfo);
+
+				AfxGetApp()->BeginWaitCursor();
+				WaitForSingleObject(ShExecInfo.hProcess,INFINITE);
+				AfxGetApp()->EndWaitCursor();
+
+				// 目录检测
+				CString FilePath = _T("./Cache/") + pWnd->Project;
+				if (GetFileAttributes(FilePath) == 0xFFFFFFFF)     //文件夹不存在
+				{
+					// 创建目录
+					CreateDirectory(FilePath, NULL);
+				}
+
+				FilePath = _T("./Cache/") + pWnd->Project + _T("/") + pWnd->Type;
+				if (GetFileAttributes(FilePath) == 0xFFFFFFFF)     //文件夹不存在
+				{
+					// 创建目录
+					CreateDirectory(FilePath, NULL);
+				}
+
+				// 移动目标
+				if(!MoveFileEx(_T("./Application/Default.7z"), _T("./Cache/") + pWnd->Project + _T("/") + pWnd->Type + _T("/Default.7z"), MOVEFILE_REPLACE_EXISTING))
+				{
+					AfxMessageBox(_T("移动目标失败!"));
+				}
+				else
+				{
+					// 后续处理
+					pWnd->PostMessage(WM_COMMAND, 103);
+				}
+
+			}break;
 		}
 	}
 	catch (...)
@@ -426,7 +593,30 @@ void CWebProjectDlg::Split(CString source, CString divKey, CStringArray &dest)
 		dest.Add(temp);
 	}
 }
+ 
 
+void CWebProjectDlg::AddTarget(CString Path, CStringArray &TargetList)
+{
+	// 读取数据
+	CFileFind Finder;
+	BOOL IsFind = Finder.FindFile(Path + "./*.*");
+	while (IsFind)
+	{
+		IsFind = Finder.FindNextFile();
+
+		if (Finder.IsDots())
+			continue;
+		if (Finder.IsDirectory())
+			AddTarget(Finder.GetFilePath(), TargetList);
+		else
+		{
+			CString Target = UserId + _T("/Cache/") + Finder.GetFilePath();
+			Target.Replace(Project + _T("\\"), _T(""));
+			Target.Replace(_T("\\"), _T("/"));
+			TargetList.Add(Target);
+		}
+	}
+}
 
 
 void CWebProjectDlg::OnOK()
@@ -610,7 +800,7 @@ void CWebProjectDlg::OnRclickProjectList(NMHDR *pNMHDR, LRESULT *pResult)
 	
 	CSearchDlg dlg;
 	dlg.Title    = _T("查找项目");
-	dlg.FilePath = _T("index/account/GetProjectInfo");
+	dlg.FilePath = _T("index/account/ProjectInfo");
 	dlg.NeedFind = false;
 	dlg.Web_Data = true;
 	dlg.Resolve  = _T("ProjectName");
@@ -662,7 +852,7 @@ void CWebProjectDlg::OnClickVersionList(NMHDR *pNMHDR, LRESULT *pResult)
 		{
 			GetDlgItem(IDC_REMOVE_BUTTON)->EnableWindow();
 			GetDlgItem(IDC_MODIFY_BUTTON)->EnableWindow();
-			GetDlgItem(IDC_RESTORE_BUTTON)->EnableWindow();
+			GetDlgItem(IDC_MERGE_BUTTON) ->EnableWindow();
 		}
 		else
 		{
@@ -670,13 +860,13 @@ void CWebProjectDlg::OnClickVersionList(NMHDR *pNMHDR, LRESULT *pResult)
 			{
 				GetDlgItem(IDC_REMOVE_BUTTON)->EnableWindow();
 				GetDlgItem(IDC_MODIFY_BUTTON)->EnableWindow();
-				GetDlgItem(IDC_RESTORE_BUTTON)->EnableWindow();
+				GetDlgItem(IDC_MERGE_BUTTON) ->EnableWindow();
 			}
 			else
 			{
 				GetDlgItem(IDC_REMOVE_BUTTON)->EnableWindow(false);
 				GetDlgItem(IDC_MODIFY_BUTTON)->EnableWindow(false);
-				GetDlgItem(IDC_RESTORE_BUTTON)->EnableWindow(false);
+				GetDlgItem(IDC_MERGE_BUTTON) ->EnableWindow(false);
 			}
 		}
 
@@ -686,8 +876,8 @@ void CWebProjectDlg::OnClickVersionList(NMHDR *pNMHDR, LRESULT *pResult)
 	{
 		GetDlgItem(IDC_REMOVE_BUTTON)->EnableWindow(false);
 		GetDlgItem(IDC_MODIFY_BUTTON)->EnableWindow(false);
-		GetDlgItem(IDC_RESTORE_BUTTON)->EnableWindow(false);
-		GetDlgItem(IDC_CLONE_BUTTON)->EnableWindow(false);
+		GetDlgItem(IDC_MERGE_BUTTON) ->EnableWindow(false);
+		GetDlgItem(IDC_CLONE_BUTTON) ->EnableWindow(false);
 	}
 
 	*pResult = 0;
@@ -722,8 +912,10 @@ void CWebProjectDlg::OnRclickVersionList(NMHDR *pNMHDR, LRESULT *pResult)
 		for(int i=0; i<Count; i++)
 		{
 			CString Version = m_Version.GetItemText(i, 2);
+			CString Branch  = m_Version.GetItemText(i, 4);
+			Version.Replace(_T("-") + Branch, _T(""));
 
-			if(Version == Function)
+			if(Function == Version)
 			{
 				//设置高亮显示  
 				m_Version.SetFocus();//设置焦点  
@@ -750,7 +942,43 @@ void CWebProjectDlg::OnNew()
 
 	if(dlg.DoModal() == IDOK)
 	{
-		m_Project.AddItem(dlg.m_Project, dlg.m_Version, dlg.m_Share, dlg.ProjectId);
+		// 显示消息提示
+		AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
+
+		// 进行添加操作
+		OperateType = 7;
+		ProjectId   = dlg.ProjectId;
+		Project     = dlg.m_Project;
+		Share       = dlg.m_Share;
+		Version     = dlg.m_Version;
+		Path        = dlg.m_Path;
+		Type        = dlg.m_Type;
+		m_hOperate  = AfxBeginThread(Operate, this);
+	}
+}
+
+
+void CWebProjectDlg::AddProject()
+{
+	// 上传压缩文件
+	CStringArray TargetList;
+	CString      Target = UserId + _T("./Cache/") + Project + _T("/") + Type + _T("/Default.7z");
+	TargetList.Add(Target);
+
+	CTransmissionDlg pDlg;
+	pDlg.TargetList = &TargetList;
+	pDlg.IsDownload = false;
+	pDlg.IsCode     = false;
+	pDlg.IsProject  = true;
+	pDlg.DoModal();
+
+	if(pDlg.IsFinished)
+	{
+		// 操作完成标志
+		theApp.IsFinished = true;
+
+		// 添加到列表
+		m_Project.AddItem(Project, Version, Share, ProjectId, UserId, _T("1"));
 	}
 }
 
@@ -849,6 +1077,9 @@ void CWebProjectDlg::OnDelete()
 			//}
 			AfxMessageBox(_T("一次只能删除一个项目!"));
 		}
+
+		// 清空版本列表
+		m_Version.DeleteAllItems();
 	}
 }
 
@@ -885,8 +1116,8 @@ void CWebProjectDlg::OnSwitch()
 	GetDlgItem(IDC_ADD_BUTTON)->EnableWindow(false);
 	GetDlgItem(IDC_REMOVE_BUTTON)->EnableWindow(false);
 	GetDlgItem(IDC_MODIFY_BUTTON)->EnableWindow(false);
-	GetDlgItem(IDC_RESTORE_BUTTON)->EnableWindow(false);
-	GetDlgItem(IDC_CLONE_BUTTON)->EnableWindow(false);
+	GetDlgItem(IDC_MERGE_BUTTON) ->EnableWindow(false);
+	GetDlgItem(IDC_CLONE_BUTTON) ->EnableWindow(false);
 
 	// 启动工作者线程
 	if (m_hOperate == NULL)
@@ -907,15 +1138,21 @@ void CWebProjectDlg::OnAdd()
 		dlg.IsNew     = true;
 		dlg.IsProject = false;
 		dlg.ProjectId = Number;
-		dlg.UserId  = UserId;
+		dlg.UserId    = UserId;
 
 		if(dlg.DoModal() == IDOK)
 		{
-			CString ModifyTime; //获取系统时间
-			CTime tm; tm = CTime::GetCurrentTime();
-			ModifyTime   = tm.Format(_T("%Y-%m-%d %H:%M:%S"));
+			// 显示消息提示
+			AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
 
-			m_Version.AddItem(dlg.m_Project, ModifyTime, dlg.m_Version + _T("-") + dlg.m_Type, UserName, dlg.m_Type);
+			// 进行添加操作
+			OperateType = 6;
+			VersionId   = dlg.VersionId;
+			Remark      = dlg.m_Project;
+			Version     = dlg.m_Version;
+			Path        = dlg.m_Path;
+			Type        = dlg.m_Type;
+			m_hOperate  = AfxBeginThread(Operate, this);
 		}
 	}
 	else
@@ -925,9 +1162,63 @@ void CWebProjectDlg::OnAdd()
 }
 
 
-void CWebProjectDlg::OnRestore()
+void CWebProjectDlg::AddVersion()
 {
-	// TODO: 在此添加控件通知处理程序代码
+	// 上传压缩文件
+	CStringArray TargetList;
+	CString      Target = UserId + _T("./Cache/") + Project + _T("/") + Type + _T("/") + Version + _T(".7z");
+	TargetList.Add(Target);
+
+	CTransmissionDlg pDlg;
+	pDlg.TargetList = &TargetList;
+	pDlg.IsDownload = false;
+	pDlg.IsCode     = false;
+	pDlg.IsProject  = true;
+	pDlg.DoModal();
+
+	// 得到修改时间
+	CString ModifyTime; //获取系统时间
+	CTime tm; tm = CTime::GetCurrentTime();
+	ModifyTime   = tm.Format(_T("%Y-%m-%d %H:%M:%S"));
+
+	if(pDlg.IsFinished)
+	{
+		// 操作完成标志
+		theApp.IsFinished = true;
+
+		// 添加到列表
+		m_Version.AddItem(Remark, ModifyTime, Version + _T("-") + Type, UserName, Type, VersionId);
+	}
+}
+
+
+void CWebProjectDlg::OnMerge()
+{
+	int Count = m_Version.GetSelectedCount();
+
+	if (m_Version.GetNextItem(-1, LVIS_SELECTED) != -1)
+	{
+		if(Count == 1)
+		{
+			CString VersionId = m_Version.GetItemText(m_Version.GetNextItem(-1, LVIS_SELECTED), 5);
+			CString Branch    = m_Version.GetItemText(m_Version.GetNextItem(-1, LVIS_SELECTED), 4);
+			CString Version   = m_Version.GetItemText(m_Version.GetNextItem(-1, LVIS_SELECTED), 2);
+			Version.Replace(_T("-") + Branch, _T(""));
+
+			// 启动工作者线程
+			if (m_hOperate == NULL)
+			{
+				OperateType = 5;
+				Parameter.Format(_T("version_id=%s&branch=%s&project=%s&version=%s&user=%s"), VersionId, Branch, Project, Version, UserId);
+
+				m_hOperate = AfxBeginThread(Operate, this);
+			}
+		}
+		else
+		{
+			AfxMessageBox(_T("一次只能合并一个版本!"));
+		}
+	}
 }
 
 
@@ -1007,12 +1298,22 @@ void CWebProjectDlg::OnRemove()
 		if(Count == 1)
 		{
 			CString VersionId = m_Version.GetItemText(m_Version.GetNextItem(-1, LVIS_SELECTED), 5);
+			CString Branch    = m_Version.GetItemText(m_Version.GetNextItem(-1, LVIS_SELECTED), 4);
+			CString Version   = m_Version.GetItemText(m_Version.GetNextItem(-1, LVIS_SELECTED), 2);
+			Version.Replace(_T("-") + Branch, _T(""));
+
+			// 不可移除master分支
+			if(Branch == _T("master"))
+			{
+				AfxMessageBox(_T("不可移除master分支!"));
+				return;
+			}
 
 			// 启动工作者线程
 			if (m_hOperate == NULL)
 			{
 				OperateType = 4;
-				Parameter.Format(_T("version_id=%s"), VersionId);
+				Parameter.Format(_T("version_id=%s&branch=%s&project=%s&version=%s&user=%s"), VersionId, Branch, Project, Version, UserId);
 
 				m_hOperate = AfxBeginThread(Operate, this);
 			}
@@ -1030,7 +1331,60 @@ void CWebProjectDlg::OnRemove()
 
 void CWebProjectDlg::OnClone()
 {
-	// TODO: 在此添加控件通知处理程序代码
+	TCHAR           szFolderPath[MAX_PATH] = {0};  
+	CString         strFolderPath = TEXT("");  
+
+	BROWSEINFO      sInfo;
+	::ZeroMemory(&sInfo, sizeof(BROWSEINFO));
+	sInfo.pidlRoot  = 0;
+	sInfo.lpszTitle = _T("请选择一个目录：");
+	sInfo.ulFlags   = BIF_DONTGOBELOWDOMAIN | BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE | BIF_EDITBOX;
+	sInfo.lpfn      = NULL;
+
+	// 显示文件夹选择对话框
+	LPITEMIDLIST lpidlBrowse = ::SHBrowseForFolder(&sInfo);
+	if (lpidlBrowse != NULL)
+	{
+		// 取得文件夹名
+		if (::SHGetPathFromIDList(lpidlBrowse,szFolderPath)) 
+		{
+			strFolderPath = szFolderPath;
+		}
+	}
+	if(lpidlBrowse != NULL)  
+	{  
+		::CoTaskMemFree(lpidlBrowse);  
+	}
+
+	// 返回
+	if(strFolderPath.IsEmpty())
+		return;
+
+
+	if (m_Version.GetNextItem(-1, LVIS_SELECTED) != -1)
+	{
+		CString Branch    = m_Version.GetItemText(m_Version.GetNextItem(-1, LVIS_SELECTED), 4);
+		CString Version   = m_Version.GetItemText(m_Version.GetNextItem(-1, LVIS_SELECTED), 2);
+		Version.Replace(_T("-") + Branch, _T(""));
+
+		CStringArray TargetList;
+		CString      Target = UserId + _T("/Project/") + Project + _T("/") + Branch + _T("/") + Version + _T(".7z");
+		TargetList.Add(Target);
+
+		CTransmissionDlg pDlg;
+		pDlg.TargetList = &TargetList;
+		pDlg.TargetPath = strFolderPath;
+		pDlg.IsDownload = true;
+		pDlg.IsCode     = false;
+		pDlg.IsProject  = true;
+		pDlg.DoModal();
+
+		if(pDlg.IsFinished)
+		{
+			// 打开项目目录
+			ShellExecute(NULL, _T("open"), strFolderPath, NULL, NULL, SW_SHOW);
+		}
+	}
 }
 
 

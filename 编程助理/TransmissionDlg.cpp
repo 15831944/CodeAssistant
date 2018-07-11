@@ -7,6 +7,7 @@
 #include "afxdialogex.h"
 
 #include <afxinet.h> 
+#include "ProjectDlg.h"
 
 // 定义大小
 #define KB 1024
@@ -184,14 +185,13 @@ void CTransmissionDlg::HttpPostFile( CString ServerName, CString ServerPath, int
      ender+= _T("--\r\n");
      byte* enderbyte = (byte*)ender.GetBuffer(ender.GetLength());
 
-
 	 // 文件对象
      CFile cfile;
      cfile.Open(File, CFile::modeRead|CFile::shareDenyRead, NULL);
      DWORD dwSize = pPostTop.GetLength() + ender.GetLength() + (DWORD)cfile.GetLength();
      pFile->SendRequestEx(dwSize);
      pFile->Write(pPostTopbytes, pPostTop.GetLength());
-
+	 
 
      //数据主体
      int bufflength = 4 * 1024;
@@ -248,6 +248,12 @@ void CTransmissionDlg::HttpPostFile( CString ServerName, CString ServerPath, int
 	 CString RecvData, Parameter, UserId, Parent, Sub, Item, Temp;
 	 BOOL IsSuccess;
 
+	 if(IsProject)
+	 {
+		  // 替换
+		 TargetPath.Replace(_T("./Cache/"), _T("/Project/"));
+	 }
+
 	 Temp   = TargetPath.Right(TargetPath.GetLength() - TargetPath.Find('/') -1);
 	 UserId = TargetPath.Left(TargetPath.GetLength() - Temp.GetLength() -1);
 
@@ -257,8 +263,9 @@ void CTransmissionDlg::HttpPostFile( CString ServerName, CString ServerPath, int
 		 Parent = Temp.Left(Temp.GetLength() - Temp.Find('/') );
 		 Sub    = Temp.Right(Temp.GetLength() - Parent.GetLength() -1);
 	 }
-	 else
+	 else if(!IsCode && !IsProject)
 	 {
+		 // 文件
 		 Temp   = Temp.Right(Temp.GetLength() - Temp.Find('/') -1);
 		 Item   = Temp.Right(Temp.GetLength() - Temp.ReverseFind('/') -1);
 
@@ -266,9 +273,24 @@ void CTransmissionDlg::HttpPostFile( CString ServerName, CString ServerPath, int
 		 Sub    = Temp.Right(Temp.GetLength() - Temp.ReverseFind('/') -1);
 		 Parent = _T("File/") + Temp.Left(Temp.GetLength() - Sub.GetLength() -1);
 	 }
-
+	 else
+	 {
+		 if(Temp.Replace(_T("master"), _T("master")) || Temp.Replace(_T("hotfix"), _T("hotfix")) )
+		 {
+			 // 项目
+			 Parent = Temp.Left(Temp.GetLength()  - Temp.Find('/'));
+			 Sub    = Temp.Right(Temp.GetLength() - Parent.GetLength() -1);
+		 }
+		 else
+		 {
+			 // 项目
+			 Parent = Temp.Left(Temp.GetLength()  - Temp.Find('/') -1);
+			 Sub    = Temp.Right(Temp.GetLength() - Parent.GetLength() -1);
+		 }
+	 }
+	 
 	 // 参数赋值
-	 if(IsCode)
+	 if(IsCode || IsProject)
 		 Parameter.Format(_T("path=%s&target=%s&name=%s&id=%s&parent=%s&sub=%s"), UploadPath, TargetPath, UploadName, UserId, Parent, Sub);
 	 else
 		 Parameter.Format(_T("path=%s&target=%s&name=%s&id=%s&parent=%s&sub=%s&item=%s"), UploadPath, TargetPath, UploadName, UserId, Parent, Sub, Item);
@@ -552,6 +574,42 @@ UINT CTransmissionDlg::UploadFile(LPVOID pParam)
 }
 
 
+UINT CTransmissionDlg::Decompression(LPVOID pParam)
+{
+	// 窗口指针
+	CTransmissionDlg * pWnd = (CTransmissionDlg*)pParam;
+
+	// 显示传输状态
+	pWnd->SetDlgItemText(IDC_STATUS_STATIC, _T("正在解压项目..."));
+	pWnd->GetDlgItem(IDCANCEL)->EnableWindow(false);
+
+	// 解压压缩文件
+	CString CommandLine;
+	CommandLine.Format(_T("x -t7z \"%s\" -o\"%s\" -y"), pWnd->DownloadName, pWnd->TargetPath);
+
+	SHELLEXECUTEINFO ShExecInfo = {0};
+	ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+	ShExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+
+	ShExecInfo.lpFile       = "Application\\7z.exe";
+	ShExecInfo.lpDirectory  = NULL;
+	ShExecInfo.lpParameters = CommandLine;
+
+	ShExecInfo.nShow = SW_HIDE;
+	ShellExecuteEx(&ShExecInfo);
+
+	AfxGetApp()->BeginWaitCursor();
+	WaitForSingleObject(ShExecInfo.hProcess,INFINITE);
+	AfxGetApp()->EndWaitCursor();
+
+	// 显示传输状态
+	pWnd->SetDlgItemText(IDC_STATUS_STATIC, _T("传输操作已完成."));
+	pWnd->GetDlgItem(IDCANCEL)->EnableWindow();
+
+	return 1;
+}
+
+
 void CTransmissionDlg::Prepare()
 {
 	// 检查路径
@@ -659,6 +717,11 @@ void CTransmissionDlg::Complete()
 				AfxMessageBox(_T("移动目标失败!"));
 			}
 		}
+		else if(IsProject)
+		{
+			// 解压缩
+			AfxBeginThread(Decompression, this);
+		}
 		else
 		{
 			CString Parent = TextArray.GetAt(2), Sub = TextArray.GetAt(3), Item = TextArray.GetAt(4);
@@ -695,7 +758,14 @@ void CTransmissionDlg::Complete()
 	}
 	else
 	{
-		
+		// 清理缓存
+		if(IsProject)
+		{
+			CString Temp = TargetPath.Right(TargetPath.GetLength() - TargetPath.Find('/') -1), Parent = Temp.Left(Temp.GetLength() - Temp.Find('/'));
+			Parent.Replace(_T("Project"), _T("Cache"));
+
+			CProjectDlg::DeleteDirectory(_T("./") + Parent);
+		}
 	}
 	
 

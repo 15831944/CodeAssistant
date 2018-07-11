@@ -15,7 +15,7 @@ public:
 
 	// 全局变量
 	int DataSource, ProjectType, OperateType, Total;
-	CString UserId, UserName, Parameter, Error, Project, Number, OwnerId, Role;
+	CString UserId, UserName, Parameter, Error, Project, Number, OwnerId, Role, Share, Remark, Version, Path, Type, ProjectId, VersionId;
 
 	// 工作者线程
 	static UINT Operate(LPVOID pParam);
@@ -24,6 +24,9 @@ public:
 	// 方法
 	void OnSuccess();
 	void OnError();
+	void AddTarget(CString Path, CStringArray &TargetList);
+	void CopyDirectory(CString source, CString target);
+	void AddProject(), AddVersion();
 
 	// 列表
 	CSortListCtrl m_Project;
@@ -57,7 +60,7 @@ public:
 	afx_msg void OnDelete();
 	afx_msg void OnSwitch();
 	afx_msg void OnAdd();
-	afx_msg void OnRestore();
+	afx_msg void OnMerge();
 	afx_msg void OnModify();
 	afx_msg void OnRemove();
 	afx_msg void OnClone();

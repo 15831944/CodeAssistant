@@ -1,4 +1,3 @@
-
 // 编程助理.cpp : 定义应用程序的类行为。
 //
 
@@ -256,6 +255,27 @@ CString CMainApp::OnGetWebInfo(CString ServerName, CString ServerPath, int Serve
 void CMainApp::OnHelp()
 {
 	::SendMessage(m_pMainWnd->GetSafeHwnd(), WM_CHILDMESSAGE, 2, 0);
+}
+
+
+CString CMainApp::Convert(string Source)
+{
+	//解决中文转码问题
+	int len = strlen(Source.c_str())+1;  
+	char outch[MAX_PATH];  
+	WCHAR * wChar = new WCHAR[len];  
+	wChar[0] = 0;  
+	MultiByteToWideChar(CP_UTF8, 0, Source.c_str(), len, wChar, len);  
+	WideCharToMultiByte(CP_ACP, 0, wChar, len, outch , len, 0, 0);  
+	delete [] wChar;  
+	char* pchar = (char*)outch;  
+
+	len = strlen(pchar)+1;  
+	WCHAR outName[MAX_PATH];  
+	MultiByteToWideChar(CP_ACP, 0, pchar, len, outName, len);
+
+	CString Result(outName);
+	return  Result;
 }
 
 

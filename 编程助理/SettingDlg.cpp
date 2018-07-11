@@ -44,6 +44,7 @@ BOOL CSettingDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
 
+	// 读取配置文件
 	OnReadSetting();
 
 	// 读取皮肤
@@ -80,6 +81,7 @@ void CSettingDlg::OnReadSetting()
 	int password  = GetPrivateProfileInt(_T("Account"), _T("Remember"),  0, _T("./Setting.ini"));
 	int login     = GetPrivateProfileInt(_T("Account"), _T("Auto"),  0, _T("./Setting.ini"));
 
+
 	// 设置复选框状态
 	((CButton*)GetDlgItem(IDC_CLEAR_CHECK))->SetCheck(Clear);
 	((CButton*)GetDlgItem(IDC_TOP_CHECK))  ->SetCheck(Top);
@@ -88,10 +90,22 @@ void CSettingDlg::OnReadSetting()
 
 	((CButton*)GetDlgItem(IDC_PASSWORD_CHECK)) ->SetCheck(password);
 	((CButton*)GetDlgItem(IDC_LOGIN_CHECK))    ->SetCheck(login);
+	
+
+	// 设置窗口置顶状态
+	if(Top)
+		::SetWindowPos(AfxGetMainWnd()->m_hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+
 
 	// 读取皮肤文件
 	CFileFind Finder;
 	BOOL IsFind = Finder.FindFile(_T("./Skin/*.ssk"));
+
+	// 重置并添加默认项
+	m_Skin.ResetContent();
+	m_Skin.AddString(_T("跟随系统 (无皮肤)"));
+
+	// 添加找到的皮肤
 	while (IsFind)
 	{
 		IsFind = Finder.FindNextFile();
@@ -104,9 +118,12 @@ void CSettingDlg::OnReadSetting()
 			m_Skin.AddString(Finder.GetFileName());
 	}
 
-	// 设置窗口置顶状态
-	if(Top)
-		::SetWindowPos(AfxGetMainWnd()->m_hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+	// 设置皮肤名称
+	int nIndex = m_Skin.FindStringExact(0, SkinName);
+	if(nIndex != CB_ERR)
+	{
+		m_Skin.SetCurSel(nIndex);
+	}
 }
 
 
@@ -116,7 +133,8 @@ void CSettingDlg::OnSelchangeSkinCombo()
 	CString Name = _T("Skin\\") + SkinName;
 
 	// 更换皮肤
-	skinppLoadSkin((TCHAR *)(LPCSTR)Name);
+	if(SkinName != _T("跟随系统 (无皮肤)"))
+		skinppLoadSkin((TCHAR *)(LPCSTR)Name);
 
 	// 刷新窗口
 	Invalidate();

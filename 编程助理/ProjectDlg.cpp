@@ -137,7 +137,7 @@ void CProjectDlg::OnClickProjectList(NMHDR *pNMHDR, LRESULT *pResult)
 		// 清空
 		this->pResult.clear();
 
-		if (theApp.m_Sql.SelectData(_T("版本控制"), this->pResult, false, _T(""), _T(""), _T("Name = '") + Name + _T("'") ))
+		if (theApp.m_Sql.SelectData(_T("版本控制"), this->pResult, _T("Name = '") + Name + _T("'") ))
 		{
 			// 清空列表
 			m_Version.DeleteAllItems();
@@ -264,7 +264,7 @@ void CProjectDlg::Refresh()
 	// 清空
 	pResult.clear();
 
-	if (theApp.m_Sql.SelectData(_T("项目管理"), pResult, false, _T(""), _T(""), _T("Type = 'Local'") ))
+	if (theApp.m_Sql.SelectData(_T("项目管理"), pResult, _T("Type = 'Local'") ))
 	{
 		// 清空列表
 		m_Project.DeleteAllItems();
@@ -397,7 +397,7 @@ void CProjectDlg::OnOK()
 		}
 
 		// 判断数据表中是否存在数据
-		if (!theApp.m_Sql.CheckData(_T("项目管理"), 1, false, _T(""), _T(""), _T("Path = '") + dlg.m_Path + _T("' and Type = 'Local'")))
+		if (!theApp.m_Sql.CheckData(_T("项目管理"), 1, _T("Path = '") + dlg.m_Path + _T("' and Type = 'Local'")))
 		{
 			// 若写入数据库失败
 			if (!theApp.m_Sql.InsertData(_T("项目管理"), _T("'") + dlg.m_Name + _T("','") + dlg.m_Path + _T("','Local','") + dlg.m_Version + _T("'")))
@@ -725,7 +725,7 @@ void CProjectDlg::OnAdd()
 			}
 
 			// 判断数据表中是否存在数据
-			if (!theApp.m_Sql.CheckData(_T("版本控制"), 1, false, _T(""), _T(""), _T("Name = '") + Name + _T("' and Version = '") + dlg.m_Version + _T("' and Type = 'Local'")))
+			if (!theApp.m_Sql.CheckData(_T("版本控制"), 1, _T("Name = '") + Name + _T("' and Version = '") + dlg.m_Version + _T("' and Type = 'Local'")))
 			{
 				CString ModifyTime; //获取系统时间
 				CTime tm; tm = CTime::GetCurrentTime();

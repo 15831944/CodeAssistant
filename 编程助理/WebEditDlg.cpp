@@ -13,6 +13,8 @@
 #ifdef _MSC_VER
 #pragma warning (push)
 #pragma warning (disable : 4005)
+#pragma warning (disable : 4482)
+#pragma warning (disable : 4996)
 #include "json/json.h"
 #pragma warning (pop)
 #endif
@@ -215,7 +217,7 @@ UINT CWebEditDlg::Operate(LPVOID pParam)
 		{
 		// 获得成员
 		case 0: 
-			RecvData = theApp.OnGetWebInfo(_T("Localhost"), _T("index/account/GetGroup"), 80, pWnd->Parameter, IsSuccess);
+			RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/GetGroup"), 80, pWnd->Parameter, IsSuccess);
 
 			// 读数据
 			if (RecvData == _T("") || RecvData.IsEmpty() || !IsSuccess)
@@ -250,10 +252,9 @@ UINT CWebEditDlg::Operate(LPVOID pParam)
 								std::string Role   = Items[i]["Role"].asString();
 								std::string Type   = Items[i]["Type"].asString();
 
-								CString m_Member   = (CString)Member.c_str();
-								CString m_Role     = (CString)Role.c_str();
-								CString m_Type     = (CString)Type.c_str();
-
+								CString m_Member   = theApp.Convert(Member);
+								CString m_Role     = theApp.Convert(Role);
+								CString m_Type     = theApp.Convert(Type);
 
 								// 分割数据
 								CStringArray MemberArray, RoleArray, TypeArray;
@@ -270,8 +271,10 @@ UINT CWebEditDlg::Operate(LPVOID pParam)
 
 									if(m_Role == _T("0"))
 										m_Role = _T("参与者");
-									else
+									else if(m_Role == _T("1"))
 										m_Role = _T("管理者");
+									else
+										m_Role = _T("创建者");
 									
 									if(m_Type == _T("all"))
 										m_Type = _T("全部版本");
@@ -312,7 +315,7 @@ UINT CWebEditDlg::Operate(LPVOID pParam)
 
 		// 新建项目
 		case 1: 
-			RecvData = theApp.OnGetWebInfo(_T("Localhost"), _T("index/account/CreateProject"), 80, pWnd->Parameter, IsSuccess);
+			RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/CreateProject"), 80, pWnd->Parameter, IsSuccess);
 
 			// 读数据
 			if (RecvData == _T("") || RecvData.IsEmpty() || !IsSuccess)
@@ -355,7 +358,7 @@ UINT CWebEditDlg::Operate(LPVOID pParam)
 
 		// 编辑项目
 		case 2: 
-			RecvData = theApp.OnGetWebInfo(_T("Localhost"), _T("index/account/EditProject"), 80, pWnd->Parameter, IsSuccess);
+			RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/EditProject"), 80, pWnd->Parameter, IsSuccess);
 			
 			// 读数据
 			if (RecvData == _T("") || RecvData.IsEmpty() || !IsSuccess)
@@ -371,7 +374,7 @@ UINT CWebEditDlg::Operate(LPVOID pParam)
 					{
 						pWnd->PostMessage(WM_COMMAND, 100);
 					}
-					else if( RecvData.Replace(_T("error"), _T("")) )
+					else if( RecvData.Replace(_T("error"), _T("")) || RecvData.Replace(_T("NotChange"), _T("")))
 					{
 						pWnd->Error = _T("没有修改任何内容。");
 						pWnd->PostMessage(WM_COMMAND, 101);
@@ -392,8 +395,8 @@ UINT CWebEditDlg::Operate(LPVOID pParam)
 
 		// 新建版本
 		case 3:
-			RecvData = theApp.OnGetWebInfo(_T("Localhost"), _T("index/account/AddVersion"), 80, pWnd->Parameter, IsSuccess);
-			
+			RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/AddVersion"), 80, pWnd->Parameter, IsSuccess);
+
 			// 读数据
 			if (RecvData == _T("") || RecvData.IsEmpty() || !IsSuccess)
 			{
@@ -404,13 +407,24 @@ UINT CWebEditDlg::Operate(LPVOID pParam)
 			{
 				if (IsSuccess)
 				{
-					if( RecvData.Replace(_T("success"), _T("")) )
+					if( RecvData == RecvData.SpanIncluding( _T("0123456789") ) )
 					{
+						pWnd->VersionId = RecvData;
 						pWnd->PostMessage(WM_COMMAND, 100);
 					}
 					else if( RecvData.Replace(_T("used"), _T("")) )
 					{
 						pWnd->Error = _T("已存在相同的版本。");
+						pWnd->PostMessage(WM_COMMAND, 101);
+					}
+					else if( RecvData.Replace(_T("master"), _T("")) )
+					{
+						pWnd->Error = _T("已存在master版本, master版本只能存在一个。");
+						pWnd->PostMessage(WM_COMMAND, 101);
+					}
+					else if( RecvData.Replace(_T("develop"), _T("")) )
+					{
+						pWnd->Error = _T("已存在develop版本, develop版本只能存在一个。");
 						pWnd->PostMessage(WM_COMMAND, 101);
 					}
 					else
@@ -429,7 +443,7 @@ UINT CWebEditDlg::Operate(LPVOID pParam)
 
 		// 编辑版本
 		case 4:
-			RecvData = theApp.OnGetWebInfo(_T("Localhost"), _T("index/account/ModifyVersion"), 80, pWnd->Parameter, IsSuccess);
+			RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/ModifyVersion"), 80, pWnd->Parameter, IsSuccess);
 			
 			// 读数据
 			if (RecvData == _T("") || RecvData.IsEmpty() || !IsSuccess)
@@ -448,6 +462,21 @@ UINT CWebEditDlg::Operate(LPVOID pParam)
 					else if( RecvData.Replace(_T("used"), _T("")) )
 					{
 						pWnd->Error = _T("已存在相同的版本。");
+						pWnd->PostMessage(WM_COMMAND, 101);
+					}
+					else if( RecvData.Replace(_T("master"), _T("")) )
+					{
+						pWnd->Error = _T("已存在master版本, master版本只能存在一个。");
+						pWnd->PostMessage(WM_COMMAND, 101);
+					}
+					else if( RecvData.Replace(_T("develop"), _T("")) )
+					{
+						pWnd->Error = _T("已存在develop版本, develop版本只能存在一个。");
+						pWnd->PostMessage(WM_COMMAND, 101);
+					}
+					else if( RecvData.Replace(_T("default"), _T("")) )
+					{
+						pWnd->Error = _T("不可将master分支修改为其他分支。");
 						pWnd->PostMessage(WM_COMMAND, 101);
 					}
 					else if( RecvData.Replace(_T("error"), _T("")) )
@@ -497,6 +526,26 @@ void CWebEditDlg::OnSuccess()
 }
 
 
+BOOL CWebEditDlg::OnCheck(CString Target)
+{
+	// 检查路径
+	LPCTSTR str = Target; //把CString类型转换为char* 类型
+	for (int i=0;str[i];i++)
+	{
+		if (str[i] < 0) //一个中文占两个字节，且每个字节都是小于0的
+		{
+			CString tmp;
+			tmp.Format("%c%c",str[i],str[i+1]);//把中文输出，举个例子
+			i++;
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
 void CWebEditDlg::OnOK()
 {
 	// 读取数据
@@ -516,6 +565,18 @@ void CWebEditDlg::OnOK()
 	}
 	else
 	{
+		if(OnCheck(m_Project) && IsProject)
+		{
+			AfxMessageBox(_T("项目名称不能含有中文!"));
+			return;
+		}
+		if(OnCheck(m_Version) && !IsProject)
+		{
+			AfxMessageBox(_T("项目版本不能含有中文!"));
+			return;
+		}
+
+
 		if(IsNew)
 		{
 			if(IsProject)
@@ -550,7 +611,9 @@ void CWebEditDlg::OnOK()
 						{
 							User += m_Group.GetItemText(i, 0) + _T(";");
 
-							if(m_Group.GetItemText(i, 1) == _T("管理者")) 
+							if(m_Group.GetItemText(i, 1) == _T("创建者")) 
+								Role += _T("2;");
+							else if(m_Group.GetItemText(i, 1) == _T("管理者")) 
 								Role += _T("1;");
 							else
 							    Role += _T("0;");
@@ -613,10 +676,12 @@ void CWebEditDlg::OnOK()
 						{
 							User += m_Group.GetItemText(i, 0) + _T(";");
 
-							if(m_Group.GetItemText(i, 1) == _T("管理者")) 
+							if(m_Group.GetItemText(i, 1) == _T("创建者")) 
+								Role += _T("2;");
+							else if(m_Group.GetItemText(i, 1) == _T("管理者")) 
 								Role += _T("1;");
 							else
-								Role += _T("0;");
+							    Role += _T("0;");
 
 							if(m_Group.GetItemText(i, 2) == _T("全部版本"))
 								Type += _T("all;");
@@ -747,8 +812,11 @@ void CWebEditDlg::OnRemove()
 	{
 		if(Count == 1)
 		{
-			// 从列表中删除数据
-			m_Group.DeleteItem(m_Group.GetNextItem(-1, LVIS_SELECTED));
+			if(m_Group.GetItemText(m_Group.GetNextItem(-1, LVIS_SELECTED), 1) == _T("创建者"))
+				AfxMessageBox(_T("不能移除创建者!"));
+			else
+				// 从列表中删除数据
+				m_Group.DeleteItem(m_Group.GetNextItem(-1, LVIS_SELECTED));
 		}
 		else
 		{
@@ -758,6 +826,12 @@ void CWebEditDlg::OnRemove()
 			{
 				nItem = -1;
 				nItem = m_Group.GetNextSelectedItem(pos);
+				if(m_Group.GetItemText(nItem, 1) == _T("创建者"))
+				{
+					AfxMessageBox(_T("不能移除创建者!"));
+					return;
+				}
+
 				if (nItem >= 0 && m_Group.GetSelectedCount() > 0)
 				{
 					m_Group.DeleteItem(nItem);

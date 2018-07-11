@@ -14,7 +14,7 @@ public:
 	virtual ~CTransmissionDlg();
 
 	// 传输模式标识&传输对象标识
-	BOOL IsDownload, IsCode;
+	BOOL IsDownload, IsCode, IsProject;
 
 	// 下载组件对象
 	CurlDownloader * m_pCurlDownloader;
@@ -36,6 +36,7 @@ public:
 	// 工作者线程
 	static UINT DownloadFile(LPVOID pParam);
 	static UINT UploadFile(LPVOID pParam);
+	static UINT Decompression(LPVOID pParam);
 
 // 对话框数据
 	enum { IDD = IDD_TRANSMISSION_DIALOG };

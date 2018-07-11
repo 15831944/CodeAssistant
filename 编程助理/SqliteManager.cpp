@@ -1,15 +1,34 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "SqliteManager.h"
 
 
 ///////////////////////////////////构造折构代码///////////////////////////////////
 
+// 静态成员初始化
+sqlite3 *CSqliteManager::db    = NULL;
+sqlite3_stmt * CSqliteManager::stmt = NULL;
+char * CSqliteManager::errMsg  = NULL;
+char **CSqliteManager::pRes    = NULL;
+int CSqliteManager::nRow = NULL, CSqliteManager::nCol = NULL;
+BOOL CSqliteManager::IsConnect = FALSE;
+bool CSqliteManager::IsConsole = FALSE;
+int CSqliteManager::version    = NULL;
+CList <CString, CString&> CSqliteManager::pResult = NULL;
+
 
 // 默认构造函数
-CSqliteManager::CSqliteManager()
+CSqliteManager::CSqliteManager(bool Console)
 {
-	// 默认连接失败
-	IsConnect = FALSE;
+	// 判断是否已完成初始化
+	if(!Init)
+	{
+		// 默认连接失败
+		IsConnect = FALSE;
+		IsConsole = Console;
+
+		// 初始化完成标识
+		Init = true;
+	}
 }
 
 
@@ -19,16 +38,14 @@ CSqliteManager::CSqliteManager(CString Name, CString Path)
 	// 默认连接失败
 	IsConnect = FALSE;
 
-
 	// 打开目标数据库连接
 	if (!OpenDataBase(Name, Path))
 	{
 		// 弹出错误信息
-		AfxMessageBox(_T("目标数据库对象创建失败!"));
+		std::cout<<"目标数据库对象创建失败!"<<std::endl;
 
 		// 返回数据库对象创建失败的信息
 		return;
-
 	}
 }
 
@@ -36,8 +53,15 @@ CSqliteManager::CSqliteManager(CString Name, CString Path)
 // 默认折构函数
 CSqliteManager::~CSqliteManager()
 {
-	// 关闭数据库连接
-	CloseDataBase();
+	// 判断是否已完成销毁
+	if(Init && IsConnect)
+	{
+		// 关闭数据库连接
+		CloseDataBase();
+
+		// 销毁已完成标识
+		Init = false;
+	}
 }
 
 
@@ -65,12 +89,30 @@ int CSqliteManager::FindCharCount(CString csStr, char c)
 }
 
 
+// 分割字符串
+void CSqliteManager::Split(CString source, CString divKey, CStringArray &dest)
+{
+	dest.RemoveAll();
+	int pos = 0;
+	int pre_pos = 0;
+	while ( -1 != pos )
+	{
+		pre_pos = pos;
+		pos     = source.Find(divKey, (pos +1));
+
+		CString temp(source.Mid(pre_pos , (pos -pre_pos )));
+		temp.Replace(divKey, _T(""));
+		dest.Add(temp);
+	}
+}
+
+
 //用于计算文件夹内的文件数量
 int CSqliteManager::CountFile(CString Path)
 {
 	int count = 0;
 	CFileFind finder;
-	BOOL working = finder.FindFile(Path + "./*.*");
+	BOOL working = finder.FindFile(Path + _T("./*.*"));
 
 	while (working)
 	{
@@ -176,7 +218,7 @@ BOOL CSqliteManager::OpenDataBase(CString Name, CString Path)
 	if (IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("该数据库已连接，不需要再次连接!"));
+		std::cout<<"该数据库已连接，不需要再次连接!"<<std::endl;
 
 		// 返回连接失败信息
 		return FALSE;
@@ -231,7 +273,7 @@ BOOL CSqliteManager::OpenDataBase(CString Name, CString Path)
 				if (sqlite3_open((CStringA)DatabasePath, &db) != SQLITE_OK) // 若无法连接数据库
 				{
 					// 弹出错误信息
-					::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+					std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 					// 关闭数据库连接
 					CloseDataBase();
@@ -254,7 +296,7 @@ BOOL CSqliteManager::OpenDataBase(CString Name, CString Path)
 			catch (...)
 			{
 				// 弹出错误信息
-				::MessageBox(NULL, _T("无法连接到数据库!"), NULL, NULL);
+				std::cout<<"无法连接到数据库!"<<std::endl;
 
 				// 返回数据库连接失败的信息
 				return FALSE;
@@ -270,7 +312,7 @@ BOOL CSqliteManager::OpenDataBase(CString Name, CString Path)
 				if (sqlite3_open((CStringA)DatabasePath, &db) != SQLITE_OK) // 若无法连接数据库
 				{
 					// 弹出错误信息
-					::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+					std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 					// 关闭数据库连接
 					CloseDataBase();
@@ -293,7 +335,7 @@ BOOL CSqliteManager::OpenDataBase(CString Name, CString Path)
 			catch (...)
 			{
 				// 弹出错误信息
-				::MessageBox(NULL, _T("无法连接到数据库!"), NULL, NULL);
+				std::cout<<"无法连接到数据库!"<<std::endl;
 
 				// 返回数据库连接失败的信息
 				return FALSE;
@@ -313,7 +355,7 @@ BOOL CSqliteManager::CloseDataBase()
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("该数据库已关闭，不需要再次关闭!"));
+		std::cout<<"该数据库已关闭，不需要再次关闭!"<<std::endl;
 
 		// 返回关闭失败信息
 		return FALSE;
@@ -327,7 +369,7 @@ BOOL CSqliteManager::CloseDataBase()
 			if (sqlite3_close(db) != SQLITE_OK)
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回关闭失败信息
 				return FALSE;
@@ -347,7 +389,8 @@ BOOL CSqliteManager::CloseDataBase()
 		catch (...)
 		{
 			// 提示错误信息
-			AfxMessageBox(_T("数据库关闭失败!"));
+			std::cout<<"数据库关闭失败!"<<std::endl;
+
 
 			// 返回关闭失败信息
 			return FALSE;
@@ -412,13 +455,13 @@ BOOL CSqliteManager::CreateDataBase(CString Name, CString Path)
 			if (sqlite3_open((CStringA)DatabasePath, &Create_db) != SQLITE_OK) // 若无法连接数据库
 			{
 				// 弹出错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(Create_db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(Create_db)<<std::endl;
 
 				// 若关闭数据库失败
 				if (sqlite3_close(Create_db) != SQLITE_OK)
 				{
 					// 提示错误信息
-					::MessageBox(NULL, (CString)sqlite3_errmsg(Create_db), NULL, NULL);
+					std::cout<<sqlite3_errmsg(Create_db)<<std::endl;
 
 					// 返回关闭失败信息
 					return FALSE;
@@ -435,7 +478,7 @@ BOOL CSqliteManager::CreateDataBase(CString Name, CString Path)
 				if (sqlite3_close(Create_db) != SQLITE_OK)
 				{
 					// 提示错误信息
-					::MessageBox(NULL, (CString)sqlite3_errmsg(Create_db), NULL, NULL);
+					std::cout<<sqlite3_errmsg(Create_db)<<std::endl;
 
 					// 返回关闭失败信息
 					return FALSE;
@@ -449,7 +492,7 @@ BOOL CSqliteManager::CreateDataBase(CString Name, CString Path)
 		catch (...)
 		{
 			// 弹出错误信息
-			::MessageBox(NULL, _T("无法创建目标数据库!"), NULL, NULL);
+			std::cout<<"无法创建目标数据库!"<<std::endl;
 
 			// 返回数据库创建失败的信息
 			return FALSE;
@@ -458,7 +501,7 @@ BOOL CSqliteManager::CreateDataBase(CString Name, CString Path)
 	else
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("已存在目标数据库,本次创建操作失败!"));
+		std::cout<<"已存在目标数据库,本次创建操作失败!"<<std::endl;
 
 		// 返回数据库创建失败的信息
 		return FALSE;
@@ -499,7 +542,7 @@ BOOL CSqliteManager::DeleteDataBase(CString Name, CString Path)
 	if (!Status)
 	{
 		// 弹出错误信息
-		AfxMessageBox(_T("不存在目标数据库,本次删除操作失败!"));
+		std::cout<<"不存在目标数据库,本次删除操作失败!"<<std::endl;
 
 		// 返回删除失败
 		return FALSE;
@@ -517,7 +560,7 @@ BOOL CSqliteManager::DeleteDataBase(CString Name, CString Path)
 			else
 			{
 				// 弹出错误信息
-				AfxMessageBox(_T("尝试删除目标数据库失败!"));
+				std::cout<<"尝试删除目标数据库失败!"<<std::endl;
 
 				// 返回删除失败
 				return FALSE;
@@ -526,7 +569,7 @@ BOOL CSqliteManager::DeleteDataBase(CString Name, CString Path)
 		catch (...)
 		{
 			// 弹出错误信息
-			AfxMessageBox(_T("尝试删除目标数据库失败!"));
+			std::cout<<"尝试删除目标数据库失败!"<<std::endl;
 
 			// 返回删除失败
 			return FALSE;
@@ -585,7 +628,7 @@ BOOL CSqliteManager::ReNameDataBase(CString OldName, CString OldPath, CString Ne
 	if (!Status)
 	{
 		// 弹出错误信息
-		AfxMessageBox(_T("不存在旧目标数据库,本次修改操作失败!"));
+		std::cout<<"不存在旧目标数据库,本次修改操作失败!"<<std::endl;
 
 		// 返回修改失败
 		return FALSE;
@@ -611,7 +654,7 @@ BOOL CSqliteManager::ReNameDataBase(CString OldName, CString OldPath, CString Ne
 			else
 			{
 				// 弹出错误信息
-				AfxMessageBox(_T("新目标数据库不能为空,移动目标数据库失败!"));
+				std::cout<<"新目标数据库不能为空,移动目标数据库失败!"<<std::endl;
 
 				// 返回移动失败
 				return FALSE;
@@ -625,7 +668,7 @@ BOOL CSqliteManager::ReNameDataBase(CString OldName, CString OldPath, CString Ne
 			else
 			{
 				// 弹出错误信息
-				AfxMessageBox(_T("修改目标数据库失败!"));
+				std::cout<<"修改目标数据库失败!"<<std::endl;
 
 				// 返回修改失败
 				return FALSE;
@@ -634,7 +677,7 @@ BOOL CSqliteManager::ReNameDataBase(CString OldName, CString OldPath, CString Ne
 		catch (...)
 		{
 			// 弹出错误信息
-			AfxMessageBox(_T("修改目标数据库失败!"));
+			std::cout<<"修改目标数据库失败!"<<std::endl;
 
 			// 返回修改失败
 			return FALSE;
@@ -693,7 +736,7 @@ BOOL CSqliteManager::ReMoveDataBase(CString OldName, CString OldPath, CString Ne
 	if (!Status)
 	{
 		// 弹出错误信息
-		AfxMessageBox(_T("不存在旧目标数据库,本次移动操作失败!"));
+		std::cout<<"不存在旧目标数据库,本次移动操作失败!"<<std::endl;
 
 		// 返回移动失败
 		return FALSE;
@@ -719,7 +762,7 @@ BOOL CSqliteManager::ReMoveDataBase(CString OldName, CString OldPath, CString Ne
 			else
 			{
 				// 弹出错误信息
-				AfxMessageBox(_T("新目标数据库不能为空,移动目标数据库失败!"));
+				std::cout<<"新目标数据库不能为空,移动目标数据库失败!"<<std::endl;
 
 				// 返回移动失败
 				return FALSE;
@@ -732,7 +775,7 @@ BOOL CSqliteManager::ReMoveDataBase(CString OldName, CString OldPath, CString Ne
 			else
 			{
 				// 弹出错误信息
-				AfxMessageBox(_T("移动目标数据库失败!"));
+				std::cout<<"移动目标数据库失败!"<<std::endl;
 
 				// 返回移动失败
 				return FALSE;
@@ -741,7 +784,7 @@ BOOL CSqliteManager::ReMoveDataBase(CString OldName, CString OldPath, CString Ne
 		catch (...)
 		{
 			// 弹出错误信息
-			AfxMessageBox(_T("移动目标数据库失败!"));
+			std::cout<<"移动目标数据库失败!"<<std::endl;
 
 			// 返回移动失败
 			return FALSE;
@@ -791,7 +834,7 @@ BOOL CSqliteManager::CheckDataBase(CString Name, CString Path)
 			if (sqlite3_close(Check_db) != SQLITE_OK)
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(Check_db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(Check_db)<<std::endl;
 
 				// 返回关闭失败信息
 				return FALSE;
@@ -804,7 +847,7 @@ BOOL CSqliteManager::CheckDataBase(CString Name, CString Path)
 	catch (...)
 	{
 		// 弹出错误信息
-		AfxMessageBox(_T("无法打开数据库!"));
+		std::cout<<"无法打开数据库!"<<std::endl;
 
 		// 返回检查失败
 		return FALSE;
@@ -882,7 +925,7 @@ BOOL CSqliteManager::GetTableName(CString &TableName)
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回创建失败信息
 		return FALSE;
@@ -902,7 +945,7 @@ BOOL CSqliteManager::GetTableName(CString &TableName)
 			if (sqlite3_prepare(db, GetSQL, -1, &stmt, (const char**)errMsg) != SQLITE_OK)
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回获取失败
 				IsSuccess = FALSE;
@@ -946,7 +989,7 @@ BOOL CSqliteManager::GetTableName(CString &TableName)
 		catch (...)
 		{
 			// 弹出错误信息
-			AfxMessageBox(_T("无法从数据库中获得表名"));
+			std::cout<<"无法从数据库中获得表名!"<<std::endl;
 
 			// 返回空的表名
 			TableName = _T("");
@@ -971,7 +1014,7 @@ BOOL CSqliteManager::GetDataTable(CString &DataTable)
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回创建失败信息
 		return FALSE;
@@ -991,7 +1034,7 @@ BOOL CSqliteManager::GetDataTable(CString &DataTable)
 			if (sqlite3_prepare(db, GetSQL, -1, &stmt, (const char**)errMsg) != SQLITE_OK)
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回获取失败
 				IsSuccess = FALSE;
@@ -1035,7 +1078,7 @@ BOOL CSqliteManager::GetDataTable(CString &DataTable)
 		catch (...)
 		{
 			// 弹出错误信息
-			AfxMessageBox(_T("无法从数据库中获得表名"));
+			std::cout<<"无法从数据库中获得表名!"<<std::endl;
 
 			// 返回空的数据
 			DataTable = _T("");
@@ -1060,7 +1103,7 @@ BOOL CSqliteManager::GetTableData(CString TableName, CString &SQL_Data)
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回创建失败信息
 		return FALSE;
@@ -1080,7 +1123,7 @@ BOOL CSqliteManager::GetTableData(CString TableName, CString &SQL_Data)
 			if (sqlite3_prepare(db, GetSQL, -1, &stmt, (const char**)errMsg) != SQLITE_OK)
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回获取失败
 				IsSuccess = FALSE;
@@ -1131,7 +1174,7 @@ BOOL CSqliteManager::GetTableData(CString TableName, CString &SQL_Data)
 		catch (...)
 		{
 			// 弹出错误信息
-			AfxMessageBox(_T("无法从数据表中获得数据"));
+			std::cout<<"无法从数据表中获得数据!"<<std::endl;
 
 			// 返回空的语句
 			SQL_Data = _T("");
@@ -1156,7 +1199,7 @@ BOOL CSqliteManager::GetColName(CString TableName, CString &ColName)
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回创建失败信息
 		return FALSE;
@@ -1176,7 +1219,7 @@ BOOL CSqliteManager::GetColName(CString TableName, CString &ColName)
 			if (sqlite3_get_table(db, GetSQL, &pRes, &nRow, &nCol, &errMsg) != SQLITE_OK)
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回获取失败
 				IsSuccess = FALSE;
@@ -1232,7 +1275,7 @@ BOOL CSqliteManager::GetColName(CString TableName, CString &ColName)
 		catch (...)
 		{
 			// 弹出错误信息
-			AfxMessageBox(_T("无法从数据库中获得表名"));
+			std::cout<<"无法从数据库中获得表名!"<<std::endl;
 
 			// 返回空的列名
 			ColName = _T("");
@@ -1257,7 +1300,7 @@ BOOL CSqliteManager::GetColType(CString TableName, CString &ColType)
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回创建失败信息
 		return FALSE;
@@ -1277,7 +1320,7 @@ BOOL CSqliteManager::GetColType(CString TableName, CString &ColType)
 			if (sqlite3_prepare(db, GetSQL, -1, &stmt, (const char**)errMsg) != SQLITE_OK)
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回获取失败
 				IsSuccess = FALSE;
@@ -1365,7 +1408,7 @@ BOOL CSqliteManager::GetColType(CString TableName, CString &ColType)
 		catch (...)
 		{
 			// 弹出错误信息
-			AfxMessageBox(_T("无法从数据表中获得类型"));
+			std::cout<<"无法从数据表中获得类型!"<<std::endl;
 
 			// 返回空的类型名
 			TableName = _T("");
@@ -1390,7 +1433,7 @@ BOOL CSqliteManager::CreateDataTable(CString TableName, CString Params)
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回创建失败信息
 		return FALSE;
@@ -1406,7 +1449,8 @@ BOOL CSqliteManager::CreateDataTable(CString TableName, CString Params)
 			//数据库启动一个事物
 			if (!transaction(db))
 			{
-				AfxMessageBox(_T("无法启动事务处理!"));
+				std::cout<<"无法启动事务处理!"<<std::endl;
+
 				return false;
 			}
 
@@ -1414,7 +1458,7 @@ BOOL CSqliteManager::CreateDataTable(CString TableName, CString Params)
 			if (sqlite3_exec(db, CreateSQL, NULL, NULL, NULL) != SQLITE_OK)
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回创建失败
 				return FALSE;
@@ -1427,7 +1471,7 @@ BOOL CSqliteManager::CreateDataTable(CString TableName, CString Params)
 				rollbackTransaction(db);
 
 				// 提示错误信息
-				AfxMessageBox(_T("创建数据表失败: ") + (CString)sqlite3_errmsg(db));
+				std::cout<<"创建数据表失败: "<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回创建失败
 				return FALSE;
@@ -1440,7 +1484,7 @@ BOOL CSqliteManager::CreateDataTable(CString TableName, CString Params)
 		catch (...)
 		{
 			// 提示错误信息
-			AfxMessageBox(_T("创建数据表失败!"));
+			std::cout<<"创建数据表失败!"<<std::endl;
 
 			// 返回创建失败
 			return FALSE;
@@ -1459,7 +1503,7 @@ BOOL CSqliteManager::DeleteDataTable(CString TableName)
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回删除失败信息
 		return FALSE;
@@ -1475,7 +1519,8 @@ BOOL CSqliteManager::DeleteDataTable(CString TableName)
 			//数据库启动一个事物
 			if (!transaction(db))
 			{
-				AfxMessageBox(_T("无法启动事务处理!"));
+				std::cout<<"无法启动事务处理!"<<std::endl;
+
 				return false;
 			}
 
@@ -1483,7 +1528,7 @@ BOOL CSqliteManager::DeleteDataTable(CString TableName)
 			if (sqlite3_exec(db, DeleteSQL, NULL, NULL, NULL) != SQLITE_OK)
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回删除失败信息
 				return FALSE;
@@ -1496,7 +1541,7 @@ BOOL CSqliteManager::DeleteDataTable(CString TableName)
 				rollbackTransaction(db);
 
 				// 提示错误信息
-				AfxMessageBox(_T("删除数据表失败: ") + (CString)sqlite3_errmsg(db));
+				std::cout<<"删除数据表失败: "<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回删除失败信息
 				return FALSE;
@@ -1509,7 +1554,7 @@ BOOL CSqliteManager::DeleteDataTable(CString TableName)
 		catch (...)
 		{
 			// 提示错误信息信息
-			AfxMessageBox(_T("删除数据表失败!"));
+			std::cout<<"删除数据表失败!"<<std::endl;
 
 			// 返回删除失败信息
 			return FALSE;
@@ -1528,7 +1573,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回修改失败信息
 		return FALSE;
@@ -1549,7 +1594,8 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 				//数据库启动一个事物
 				if (!transaction(db))
 				{
-					AfxMessageBox(_T("无法启动事务处理!"));
+					std::cout<<"无法启动事务处理!"<<std::endl;
+
 					return false;
 				}
 
@@ -1557,7 +1603,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 				if (sqlite3_exec(db, ReNameTableSQL, NULL, NULL, NULL) != SQLITE_OK)
 				{
 					// 提示错误信息
-					::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+					std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 					// 返回重命名失败
 					return FALSE;
@@ -1570,7 +1616,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 					rollbackTransaction(db);
 
 					// 提示错误信息
-					AfxMessageBox(_T("重命名数据表失败: ") + (CString)sqlite3_errmsg(db));
+					std::cout<<"重命名数据表失败: "<<sqlite3_errmsg(db)<<std::endl;
 
 					// 返回重命名失败
 					return FALSE;
@@ -1583,7 +1629,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 			catch (...)
 			{
 				// 提示错误信息
-				AfxMessageBox(_T("重命名数据表失败!"));
+				std::cout<<"重命名数据表失败!"<<std::endl;
 
 				// 返回重命名失败
 				return FALSE;
@@ -1602,7 +1648,8 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 				//数据库启动一个事物
 				if (!transaction(db))
 				{
-					AfxMessageBox(_T("无法启动事务处理!"));
+					std::cout<<"无法启动事务处理!"<<std::endl;
+
 					return false;
 				}
 
@@ -1610,7 +1657,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 				if (sqlite3_exec(db, Add_Column_SQL, NULL, NULL, NULL) != SQLITE_OK)
 				{
 					// 提示错误信息
-					::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+					std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 					// 返回添加失败
 					return FALSE;
@@ -1623,7 +1670,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 					rollbackTransaction(db);
 
 					// 提示错误信息
-					AfxMessageBox(_T("向数据表中添加列失败: ") + (CString)sqlite3_errmsg(db));
+					std::cout<<"向数据表中添加列失败: "<<sqlite3_errmsg(db)<<std::endl;
 
 					// 返回添加失败
 					return FALSE;
@@ -1636,7 +1683,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 			catch (...)
 			{
 				// 提示错误信息
-				AfxMessageBox(_T("向数据表中添加列失败!"));
+				std::cout<<"向数据表中添加列失败!"<<std::endl;
 
 				// 返回添加失败
 				return FALSE;
@@ -1657,7 +1704,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 				if (!ColumnName.Replace(Params + _T(";"), _T("")))
 				{
 					// 提示错误信息
-					AfxMessageBox(_T("找不到目标列，删除失败!"));
+					std::cout<<"找不到目标列，删除失败!"<<std::endl;
 
 					// 返回删除失败
 					return FALSE;
@@ -1669,7 +1716,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 					if (!ColumnName.Replace(_T(";"), _T(",")))
 					{
 						// 提示错误信息
-						AfxMessageBox(_T("无法分析目标列，删除失败!"));
+						std::cout<<"无法分析目标列，删除失败!"<<std::endl;
 
 						// 返回删除失败
 						return FALSE;
@@ -1689,7 +1736,8 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 						//数据库启动一个事物
 						if (!transaction(db))
 						{
-							AfxMessageBox(_T("无法启动事务处理!"));
+							std::cout<<"无法启动事务处理!"<<std::endl;
+
 							return false;
 						}
 
@@ -1697,7 +1745,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 						if (sqlite3_exec(db, Cre_Column_SQL, NULL, NULL, NULL) != SQLITE_OK)
 						{
 							// 提示错误信息
-							::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+							std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 							// 返回删除失败
 							return FALSE;
@@ -1710,7 +1758,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 							rollbackTransaction(db);
 
 							// 提示错误信息
-							AfxMessageBox(_T("向数据表中删除列失败: ") + (CString)sqlite3_errmsg(db));
+							std::cout<<"从数据表中删除列失败: "<<sqlite3_errmsg(db)<<std::endl;
 
 							// 返回删除失败
 							return FALSE;
@@ -1721,7 +1769,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 							if (!DeleteDataTable(TableName))
 							{
 								// 提示错误信息
-								::MessageBox(NULL, _T("无法删除原数据表!"), NULL, NULL);
+								std::cout<<"无法删除原数据表!"<<std::endl;
 
 								// 返回删除失败
 								return FALSE;
@@ -1732,7 +1780,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 								if (!UpdataDataTable(_T("Temp"), REN_TABLE, TableName))
 								{
 									// 提示错误信息
-									::MessageBox(NULL, _T("无法删除原数据表!"), NULL, NULL);
+									std::cout<<"无法删除原数据表!"<<std::endl;
 
 									// 返回删除失败
 									return FALSE;
@@ -1750,7 +1798,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 			catch (...)
 			{
 				// 提示错误信息
-				AfxMessageBox(_T("向数据表中删除列失败!"));
+				std::cout<<"从数据表中删除列失败!"<<std::endl;
 
 				// 返回删除失败
 				return FALSE;
@@ -1771,7 +1819,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 				if (!Sql_Data.Replace(TableName, _T("Temp")))
 				{
 					// 提示错误信息
-					AfxMessageBox(_T("找不到目标表，修改失败!"));
+					std::cout<<"找不到目标表，修改失败!"<<std::endl;
 
 					// 返回修改失败
 					return FALSE;
@@ -1782,7 +1830,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 					if (!Sql_Data.Replace(Params, NewParams))
 					{
 						// 提示错误信息
-						AfxMessageBox(_T("找不到目标列，修改失败!"));
+						std::cout<<"找不到目标列，修改失败!"<<std::endl;
 
 						// 返回修改失败
 						return FALSE;
@@ -1791,7 +1839,8 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 					//数据库启动一个事物
 					if (!transaction(db))
 					{
-						AfxMessageBox(_T("无法启动事务处理!"));
+						std::cout<<"无法启动事务处理!"<<std::endl;
+
 						return false;
 					}
 
@@ -1799,7 +1848,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 					if (sqlite3_exec(db, (CStringA)Sql_Data, NULL, NULL, NULL) != SQLITE_OK)
 					{
 						// 提示错误信息
-						::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+						std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 						// 返回修改失败
 						return FALSE;
@@ -1812,7 +1861,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 						rollbackTransaction(db);
 
 						// 提示错误信息
-						AfxMessageBox(_T("无法重命名原数据表: ") + (CString)sqlite3_errmsg(db));
+						std::cout<<"无法重命名原数据表: "<<sqlite3_errmsg(db)<<std::endl;
 
 						// 返回修改失败
 						return FALSE;
@@ -1825,7 +1874,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 						//数据库启动一个事物
 						if (!transaction(db))
 						{
-							AfxMessageBox(_T("无法启动事务处理!"));
+							std::cout<<"无法启动事务处理!"<<std::endl;
 							return false;
 						}
 
@@ -1833,7 +1882,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 						if (sqlite3_exec(db, Insert_Sql, NULL, NULL, NULL) != SQLITE_OK)
 						{
 							// 提示错误信息
-							::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+							std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 							// 返回修改失败
 							return FALSE;
@@ -1844,7 +1893,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 							if (!DeleteDataTable(TableName))
 							{
 								// 提示错误信息
-								::MessageBox(NULL, _T("无法删除原数据表!"), NULL, NULL);
+								std::cout<<"无法删除原数据表!"<<std::endl;
 
 								// 返回修改失败
 								return FALSE;
@@ -1855,7 +1904,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 								if (!UpdataDataTable(_T("Temp"), REN_TABLE, TableName))
 								{
 									// 提示错误信息
-									::MessageBox(NULL, _T("无法重命名原数据表!"), NULL, NULL);
+									std::cout<<"无法重命名原数据表!"<<std::endl;
 
 									// 返回修改失败
 									return FALSE;
@@ -1873,7 +1922,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 			catch (...)
 			{
 				// 提示错误信息
-				AfxMessageBox(_T("在数据表中修改列失败!"));
+				std::cout<<"在数据表中修改列失败!"<<std::endl;
 
 				// 返回修改失败
 				return FALSE;
@@ -1884,8 +1933,7 @@ BOOL CSqliteManager::UpdataDataTable(CString TableName, int Operation, CString P
 		// 默认什么也不做
 		default:
 		{
-			AfxMessageBox(_T("无效的命令，本次SQL无操作!"));
-
+			std::cout<<"无效的命令，本次SQL无操作!"<<std::endl;
 		}break;
 		}
 	}
@@ -1902,7 +1950,7 @@ BOOL CSqliteManager::CheckDataTable (CString TableName)
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回检查失败信息
 		return FALSE;
@@ -1917,7 +1965,7 @@ BOOL CSqliteManager::CheckDataTable (CString TableName)
 			if (!GetTableName(CheckName))
 			{
 				// 弹出错误信息
-				AfxMessageBox(_T("无法从数据库中获得表名"));
+				std::cout<<"无法从数据库中获得表名!"<<std::endl;
 
 				// 返回检查失败
 				return FALSE;
@@ -1939,7 +1987,7 @@ BOOL CSqliteManager::CheckDataTable (CString TableName)
 		}
 		catch (...)
 		{
-			AfxMessageBox(_T("无法从数据库中获得表名"));
+			std::cout<<"无法从数据库中获得表名!"<<std::endl;
 
 			// 返回检查失败
 			return FALSE;
@@ -1958,7 +2006,7 @@ BOOL CSqliteManager::CountDataTable (int &Count)
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回创建失败信息
 		return FALSE;
@@ -1982,7 +2030,7 @@ BOOL CSqliteManager::CountDataTable (int &Count)
 			if (sqlite3_prepare(db, GetSQL, -1, &stmt, (const char**)errMsg) != SQLITE_OK)
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回获取失败
 				IsSuccess = FALSE;
@@ -2023,7 +2071,7 @@ BOOL CSqliteManager::CountDataTable (int &Count)
 		catch (...)
 		{
 			// 弹出错误信息
-			AfxMessageBox(_T("无法从数据库中获得表名"));
+			std::cout<<"无法从数据库中获得表名!"<<std::endl;
 
 			// 返回 0 个数量
 			Count = 0;
@@ -2048,7 +2096,7 @@ BOOL CSqliteManager::ImportDataTable(CString TableName, CString TargetDataBase)
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回创建失败信息
 		return FALSE;
@@ -2074,13 +2122,13 @@ BOOL CSqliteManager::ImportDataTable(CString TableName, CString TargetDataBase)
 				if (sqlite3_open((CStringA)TargetDataBase, &pTarget) != SQLITE_OK) // 若无法连接数据库
 				{
 					// 弹出错误信息
-					::MessageBox(NULL, (CString)sqlite3_errmsg(pTarget), NULL, NULL);
+					std::cout<<sqlite3_errmsg(pTarget)<<std::endl;
 
 					// 若关闭数据库失败
 					if (sqlite3_close(pTarget) != SQLITE_OK)
 					{
 						// 提示错误信息
-						::MessageBox(NULL, (CString)sqlite3_errmsg(pTarget), NULL, NULL);
+						std::cout<<sqlite3_errmsg(pTarget)<<std::endl;
 
 						// 返回关闭失败信息
 						return FALSE;
@@ -2101,7 +2149,8 @@ BOOL CSqliteManager::ImportDataTable(CString TableName, CString TargetDataBase)
 							//数据库启动一个事物
 							if (!transaction(db))
 							{
-								AfxMessageBox(_T("无法启动事务处理!"));
+								std::cout<<"无法启动事务处理!"<<std::endl;
+
 								return false;
 							}
 
@@ -2112,7 +2161,7 @@ BOOL CSqliteManager::ImportDataTable(CString TableName, CString TargetDataBase)
 							if (sqlite3_exec(db, InsertSQL, NULL, NULL, &errMsg) != SQLITE_OK)
 							{
 								// 提示错误信息
-								::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+								std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 								// 返回添加失败信息
 								return FALSE;
@@ -2125,7 +2174,7 @@ BOOL CSqliteManager::ImportDataTable(CString TableName, CString TargetDataBase)
 								rollbackTransaction(db);
 
 								// 提示错误信息
-								AfxMessageBox(_T("添加数据操作失败: ") + (CString)sqlite3_errmsg(db));
+								std::cout<<"添加数据操作失败:"<<sqlite3_errmsg(db)<<std::endl;
 
 								// 返回添加失败信息
 								return FALSE;
@@ -2135,7 +2184,7 @@ BOOL CSqliteManager::ImportDataTable(CString TableName, CString TargetDataBase)
 						else
 						{
 							// 弹出错误信息
-							::MessageBox(NULL, _T("目标数据表不存在,无法导入数据!"), NULL, NULL);
+							std::cout<<"目标数据表不存在,无法导入数据!"<<std::endl;
 
 							// 返回数据导入失败的信息
 							return FALSE;
@@ -2145,7 +2194,7 @@ BOOL CSqliteManager::ImportDataTable(CString TableName, CString TargetDataBase)
 					catch (...)
 					{
 						// 弹出错误信息
-						::MessageBox(NULL, _T("无法导入数据到目标数据库!"), NULL, NULL);
+						std::cout<<"无法导入数据到目标数据库!"<<std::endl;
 
 						// 返回数据导入失败的信息
 						return FALSE;
@@ -2156,7 +2205,7 @@ BOOL CSqliteManager::ImportDataTable(CString TableName, CString TargetDataBase)
 			catch (...)
 			{
 				// 弹出错误信息
-				::MessageBox(NULL, _T("无法连接到目标数据库!"), NULL, NULL);
+				std::cout<<"无法连接到目标数据库!"<<std::endl;
 
 				// 返回数据库连接失败的信息
 				return FALSE;
@@ -2165,7 +2214,7 @@ BOOL CSqliteManager::ImportDataTable(CString TableName, CString TargetDataBase)
 		else
 		{
 			// 弹出错误信息
-			::MessageBox(NULL, _T("无法连接到目标数据库, 因为目标数据库不存在!"), NULL, NULL);
+			std::cout<<"无法连接到目标数据库, 因为目标数据库不存在!"<<std::endl;
 
 			// 返回数据库连接失败的信息
 			return FALSE;
@@ -2194,7 +2243,7 @@ BOOL CSqliteManager::InsertData(CString TableName, CString Params)
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回添加失败信息
 		return FALSE;
@@ -2210,7 +2259,8 @@ BOOL CSqliteManager::InsertData(CString TableName, CString Params)
 			//数据库启动一个事物
 			if (!transaction(db))
 			{
-				AfxMessageBox(_T("无法启动事务处理!"));
+				std::cout<<"无法启动事务处理!"<<std::endl;
+
 				return false;
 			}
 
@@ -2218,7 +2268,7 @@ BOOL CSqliteManager::InsertData(CString TableName, CString Params)
 			if (sqlite3_exec(db, InsertSQL, NULL, NULL, &errMsg) != SQLITE_OK)
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回添加失败信息
 				return FALSE;
@@ -2231,7 +2281,7 @@ BOOL CSqliteManager::InsertData(CString TableName, CString Params)
 				rollbackTransaction(db);
 
 				// 提示错误信息
-				AfxMessageBox(_T("添加数据操作失败: ") + (CString)sqlite3_errmsg(db));
+				std::cout<<"添加数据操作失败: "<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回添加失败信息
 				return FALSE;
@@ -2244,7 +2294,7 @@ BOOL CSqliteManager::InsertData(CString TableName, CString Params)
 		catch (...)
 		{
 			// 提示错误信息
-			AfxMessageBox(_T("添加数据操作失败!"));
+			std::cout<<"添加数据操作失败!"<<std::endl;
 
 			// 返回添加失败信息
 			return FALSE;
@@ -2263,7 +2313,7 @@ BOOL CSqliteManager::DeleteData(CString TableName, CString Params)
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回删除失败信息
 		return FALSE;
@@ -2283,7 +2333,8 @@ BOOL CSqliteManager::DeleteData(CString TableName, CString Params)
 			//数据库启动一个事物
 			if (!transaction(db))
 			{
-				AfxMessageBox(_T("无法启动事务处理!"));
+				std::cout<<"无法启动事务处理!"<<std::endl;
+
 				return false;
 			}
 
@@ -2291,7 +2342,7 @@ BOOL CSqliteManager::DeleteData(CString TableName, CString Params)
 			if (sqlite3_exec(db, DeleteSQL, NULL, NULL, &errMsg) != SQLITE_OK)
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回删除失败
 				return FALSE;
@@ -2304,7 +2355,7 @@ BOOL CSqliteManager::DeleteData(CString TableName, CString Params)
 				rollbackTransaction(db);
 
 				// 提示错误信息
-				AfxMessageBox(_T("添加数据操作失败: ") + (CString)sqlite3_errmsg(db));
+				std::cout<<"添加数据操作失败: "<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回删除失败
 				return FALSE;
@@ -2317,7 +2368,7 @@ BOOL CSqliteManager::DeleteData(CString TableName, CString Params)
 		catch (...)
 		{
 			// 提示错误信息
-			AfxMessageBox(_T("删除数据失败!"));
+			std::cout<<"删除数据失败!"<<std::endl;
 
 			// 返回删除失败
 			return FALSE;
@@ -2333,7 +2384,7 @@ BOOL CSqliteManager::UpdataData(CString TableName, CString Column, CString NewDa
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回修改失败信息
 		return FALSE;
@@ -2359,7 +2410,8 @@ BOOL CSqliteManager::UpdataData(CString TableName, CString Column, CString NewDa
 			//数据库启动一个事物
 			if (!transaction(db))
 			{
-				AfxMessageBox(_T("无法启动事务处理!"));
+				std::cout<<"无法启动事务处理!"<<std::endl;
+
 				return false;
 			}
 
@@ -2367,7 +2419,7 @@ BOOL CSqliteManager::UpdataData(CString TableName, CString Column, CString NewDa
 			if (sqlite3_exec(db, UpData_SQL, NULL, NULL, &errMsg) != SQLITE_OK)
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回修改失败信息
 				return FALSE;
@@ -2380,7 +2432,7 @@ BOOL CSqliteManager::UpdataData(CString TableName, CString Column, CString NewDa
 				rollbackTransaction(db);
 
 				// 提示错误信息
-				AfxMessageBox(_T("修改数据操作失败: ") + (CString)sqlite3_errmsg(db));
+				std::cout<<"修改数据操作失败: "<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回修改失败信息
 				return FALSE;
@@ -2393,7 +2445,7 @@ BOOL CSqliteManager::UpdataData(CString TableName, CString Column, CString NewDa
 		catch (...)
 		{
 			// 提示错误信息
-			AfxMessageBox(_T("修改数据操作失败!"));
+			std::cout<<"修改数据操作失败!"<<std::endl;
 
 			// 返回修改失败信息
 			return FALSE;
@@ -2412,7 +2464,7 @@ BOOL CSqliteManager::UpdataData(CString TableName, CString ColumnParams, CString
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回修改失败信息
 		return FALSE;
@@ -2438,7 +2490,8 @@ BOOL CSqliteManager::UpdataData(CString TableName, CString ColumnParams, CString
 			//数据库启动一个事物
 			if (!transaction(db))
 			{
-				AfxMessageBox(_T("无法启动事务处理!"));
+				std::cout<<"无法启动事务处理!"<<std::endl;
+
 				return false;
 			}
 
@@ -2446,7 +2499,7 @@ BOOL CSqliteManager::UpdataData(CString TableName, CString ColumnParams, CString
 			if (sqlite3_exec(db, UpData_SQL, NULL, NULL, &errMsg) != SQLITE_OK)
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回修改失败信息
 				return FALSE;
@@ -2459,7 +2512,7 @@ BOOL CSqliteManager::UpdataData(CString TableName, CString ColumnParams, CString
 				rollbackTransaction(db);
 
 				// 提示错误信息
-				AfxMessageBox(_T("修改数据操作失败: ") + (CString)sqlite3_errmsg(db));
+				std::cout<<"修改数据操作失败: "<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回修改失败信息
 				return FALSE;
@@ -2472,7 +2525,7 @@ BOOL CSqliteManager::UpdataData(CString TableName, CString ColumnParams, CString
 		catch (...)
 		{
 			// 提示错误信息
-			AfxMessageBox(_T("修改数据操作失败!"));
+			std::cout<<"修改数据操作失败!"<<std::endl;
 
 			// 返回修改失败信息
 			return FALSE;
@@ -2485,13 +2538,13 @@ BOOL CSqliteManager::UpdataData(CString TableName, CString ColumnParams, CString
 
 
 // 从目标数据表中查询数据项
-BOOL CSqliteManager::SelectData(CString TableName, vector<CString> &pResult,  BOOL DISTINCT, CString COUNT, CString COLUMN, CString Params, CString GROUP, CString HAVING, CString Order, CString Limit, int SortMode)
+BOOL CSqliteManager::SelectData(CString TableName, vector<CString> &pResult,  CString Params, CString Order, CString Limit, int SortMode, BOOL DISTINCT, CString COUNT, CString COLUMN, CString GROUP, CString HAVING)
 {
 	// 若数据库未连接成功
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回查询失败信息
 		return FALSE;
@@ -2512,7 +2565,7 @@ BOOL CSqliteManager::SelectData(CString TableName, vector<CString> &pResult,  BO
 			CStringA Select_SQL;
 			CString  DISTINCT_Text = _T("");
 
-			CString  SortText = _T("ASC");
+			CString  SortText = _T("");
 
 			// 若数据列为空
 			if (COLUMN.IsEmpty())
@@ -2520,13 +2573,15 @@ BOOL CSqliteManager::SelectData(CString TableName, vector<CString> &pResult,  BO
 				if (DISTINCT)
 				{
 					// 提示错误
-					AfxMessageBox(_T("列为空的情况下, DISTINCT 不可以为真"));
+					std::cout<<"列为空的情况下, DISTINCT 不可以为真!"<<std::endl;
+
 					return FALSE;
 				}
 				if (!COUNT.IsEmpty())
 				{
 					// 提示错误
-					AfxMessageBox(_T("列为空的情况下, COUNT 不可以不为空"));
+					std::cout<<"列为空的情况下, COUNT 不可以不为空!"<<std::endl;
+
 					return FALSE;
 				}
 
@@ -2553,30 +2608,37 @@ BOOL CSqliteManager::SelectData(CString TableName, vector<CString> &pResult,  BO
 				if (!GROUP.IsEmpty())
 				{
 					// 提示错误
-					AfxMessageBox(_T("参数为空的情况下, 分组不可以不为空"));
+					std::cout<<"参数为空的情况下, 分组不可以不为空!"<<std::endl;
+
 					return FALSE;
 				}
 
 				if (!HAVING.IsEmpty())
 				{
 					// 提示错误
-					AfxMessageBox(_T("参数为空的情况下, 筛选不可以不为空"));
+					std::cout<<"参数为空的情况下, 筛选不可以不为空!"<<std::endl;
+
 					return FALSE;
 				}
 
 				if (!Order.IsEmpty())
 				{
 					// 提示错误
-					AfxMessageBox(_T("参数为空的情况下, 排序不可以不为空"));
+					std::cout<<"参数为空的情况下, 排序不可以不为空!"<<std::endl;
+
 					return FALSE;
 				}
 
 				if (!Limit.IsEmpty())
 				{
 					// 提示错误
-					AfxMessageBox(_T("参数为空的情况下, 偏移量不可以不为空"));
+					std::cout<<"参数为空的情况下, 偏移量不可以不为空!"<<std::endl;
+
 					return FALSE;
 				}
+
+				// 构造查询SQL
+				Select_SQL = _T("SELECT ") + DISTINCT_Text + COLUMN + COUNT + _T(" FROM ") + TableName + _T(";");
 			}
 			else
 			{
@@ -2609,6 +2671,7 @@ BOOL CSqliteManager::SelectData(CString TableName, vector<CString> &pResult,  BO
 				}
 				else
 				{
+					Order    = _T("");
 					SortText = _T("");
 				}
 
@@ -2617,11 +2680,10 @@ BOOL CSqliteManager::SelectData(CString TableName, vector<CString> &pResult,  BO
 				{
 					Limit = _T(" Limit ") + Limit;
 				}
+
+				// 构造查询SQL
+				Select_SQL = _T("SELECT ") + DISTINCT_Text + COLUMN + COUNT + _T(" FROM ") + TableName + _T(" Where ") + Params + GROUP + HAVING + Order + SortText + Limit + _T(";");
 			}
-			
-			
-			// 构造查询SQL
-			Select_SQL = _T("SELECT ") + DISTINCT_Text + COLUMN + COUNT + _T(" FROM ") + TableName + _T(" Where ") + Params + GROUP + HAVING + Order + SortText + Limit + _T(";");
 
 			// 若预处理操作成功
 			if (sqlite3_prepare(db, Select_SQL, (int)strlen(Select_SQL), &stmt, &tail) == SQLITE_OK)
@@ -2648,7 +2710,7 @@ BOOL CSqliteManager::SelectData(CString TableName, vector<CString> &pResult,  BO
 			else
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回查询失败信息
 				return FALSE;
@@ -2660,7 +2722,7 @@ BOOL CSqliteManager::SelectData(CString TableName, vector<CString> &pResult,  BO
 		catch (...)
 		{
 			// 提示错误信息
-			AfxMessageBox(_T("查询数据操作失败!"));
+			std::cout<<"查询数据操作失败!"<<std::endl;
 
 			// 返回查询失败信息
 			return FALSE;
@@ -2672,14 +2734,14 @@ BOOL CSqliteManager::SelectData(CString TableName, vector<CString> &pResult,  BO
 }
 
 
-// 从目标数据表中查询单数据
-BOOL CSqliteManager::SelectData(CString TableName, CString &pResult, int Col, BOOL DISTINCT, CString COUNT, CString COLUMN, CString Params, CString GROUP, CString HAVING, CString Order, CString Limit, int SortMode)
+// 从目标数据表中查询列数据
+BOOL CSqliteManager::SelectData(CString TableName, CString &pResult, int Col, CString Params, CString Order, CString Limit, int SortMode, BOOL DISTINCT, CString COUNT, CString COLUMN, CString GROUP, CString HAVING)
 {
 	// 若数据库未连接成功
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回查询失败信息
 		return FALSE;
@@ -2700,7 +2762,7 @@ BOOL CSqliteManager::SelectData(CString TableName, CString &pResult, int Col, BO
 			CStringA Select_SQL;
 			CString  DISTINCT_Text = _T("");
 
-			CString  SortText = _T("ASC");
+			CString  SortText = _T("");
 
 			// 若数据列为空
 			if (COLUMN.IsEmpty())
@@ -2708,13 +2770,15 @@ BOOL CSqliteManager::SelectData(CString TableName, CString &pResult, int Col, BO
 				if (DISTINCT)
 				{
 					// 提示错误
-					AfxMessageBox(_T("列为空的情况下, DISTINCT 不可以为真"));
+					std::cout<<"列为空的情况下, DISTINCT 不可以为真!"<<std::endl;
+
 					return FALSE;
 				}
 				if (!COUNT.IsEmpty())
 				{
 					// 提示错误
-					AfxMessageBox(_T("列为空的情况下, COUNT 不可以不为空"));
+					std::cout<<"列为空的情况下, COUNT 不可以不为空!"<<std::endl;
+
 					return FALSE;
 				}
 
@@ -2741,30 +2805,37 @@ BOOL CSqliteManager::SelectData(CString TableName, CString &pResult, int Col, BO
 				if (!GROUP.IsEmpty())
 				{
 					// 提示错误
-					AfxMessageBox(_T("参数为空的情况下, 分组不可以不为空"));
+					std::cout<<"参数为空的情况下, 分组不可以不为空!"<<std::endl;
+
 					return FALSE;
 				}
 
 				if (!HAVING.IsEmpty())
 				{
 					// 提示错误
-					AfxMessageBox(_T("参数为空的情况下, 筛选不可以不为空"));
+					std::cout<<"参数为空的情况下, 筛选不可以不为空!"<<std::endl;
+
 					return FALSE;
 				}
 
 				if (!Order.IsEmpty())
 				{
 					// 提示错误
-					AfxMessageBox(_T("参数为空的情况下, 排序不可以不为空"));
+					std::cout<<"参数为空的情况下, 排序不可以不为空!"<<std::endl;
+
 					return FALSE;
 				}
 
 				if (!Limit.IsEmpty())
 				{
 					// 提示错误
-					AfxMessageBox(_T("参数为空的情况下, 偏移量不可以不为空"));
+					std::cout<<"参数为空的情况下, 偏移量不可以不为空!"<<std::endl;
+
 					return FALSE;
 				}
+
+				// 构造查询SQL
+				Select_SQL = _T("SELECT ") + DISTINCT_Text + COLUMN + COUNT + _T(" FROM ") + TableName + _T(";");
 			}
 			else
 			{
@@ -2797,6 +2868,7 @@ BOOL CSqliteManager::SelectData(CString TableName, CString &pResult, int Col, BO
 				}
 				else
 				{
+					Order    = _T("");
 					SortText = _T("");
 				}
 
@@ -2805,10 +2877,10 @@ BOOL CSqliteManager::SelectData(CString TableName, CString &pResult, int Col, BO
 				{
 					Limit = _T(" Limit ") + Limit;
 				}
-			}
 
-			// 构造查询SQL
-			Select_SQL = _T("SELECT ") + DISTINCT_Text + COLUMN + COUNT + _T(" FROM ") + TableName + _T(" Where ") + Params + GROUP + HAVING + Order + SortText + Limit + _T(";");
+				// 构造查询SQL
+				Select_SQL = _T("SELECT ") + DISTINCT_Text + COLUMN + COUNT + _T(" FROM ") + TableName + _T(" Where ") + Params + GROUP + HAVING + Order + SortText + Limit + _T(";");
+			}
 
 			// 若预处理操作成功
 			if (sqlite3_prepare(db, Select_SQL, (int)strlen(Select_SQL), &stmt, &tail) == SQLITE_OK)
@@ -2845,7 +2917,7 @@ BOOL CSqliteManager::SelectData(CString TableName, CString &pResult, int Col, BO
 			else
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回查询失败信息
 				return FALSE;
@@ -2857,7 +2929,7 @@ BOOL CSqliteManager::SelectData(CString TableName, CString &pResult, int Col, BO
 		catch (...)
 		{
 			// 提示错误信息
-			AfxMessageBox(_T("查询数据操作失败!"));
+			std::cout<<"查询数据操作失败!"<<std::endl;
 
 			// 返回查询失败信息
 			return FALSE;
@@ -2869,14 +2941,58 @@ BOOL CSqliteManager::SelectData(CString TableName, CString &pResult, int Col, BO
 }
 
 
+// 从目标数据表中查询数据值
+BOOL CSqliteManager::SelectData(CString TableName, CString &pResult, CString Column, CString Params, CString Order, CString Limit, int SortMode, BOOL DISTINCT, CString COUNT, CString COLUMN, CString GROUP, CString HAVING)
+{
+	// 链表对象
+	vector<CString> Values;
+
+	// 查询数据
+	if(! SelectData(TableName, Values, Params, Order, Limit, SortMode, DISTINCT, COUNT, COLUMN, GROUP, HAVING) )
+	{
+		// 提示错误信息
+		std::cout<<"查询数据操作失败!"<<std::endl;
+
+		// 返回查询失败
+		return FALSE;
+	}
+
+	// 获取列名
+	CString ColName;
+	GetColName(TableName, ColName);
+
+	// 分割字符串
+	CStringArray pArray;
+	Split(ColName, _T(";"), pArray);
+
+	// 匹配列
+	int col = 0, size = (int)pArray.GetSize();
+	for(int c = 0; c < size; c++)
+	{
+		if(pArray.GetAt(c) == Column)
+			col = c;
+	}
+
+	// 循环取值
+	for(int i = 0; i < (int)Values.size(); i += size -1)
+	{
+		// 保存结果
+		pResult = Values.at(i + col);
+	}
+
+	// 返回查询成功信息
+	return TRUE;
+}
+
+
 // 在目标数据表中检查数据项
-BOOL CSqliteManager::CheckData (CString TableName, int Col, BOOL DISTINCT, CString COUNT, CString COLUMN, CString Params, CString GROUP, CString HAVING, CString Order, CString Limit, int SortMode)
+BOOL CSqliteManager::CheckData (CString TableName, int Col, CString Params, CString Order, CString Limit, int SortMode, BOOL DISTINCT, CString COUNT, CString COLUMN, CString GROUP, CString HAVING)
 {
 	// 若数据库未连接成功
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回查询失败信息
 		return FALSE;
@@ -2885,7 +3001,7 @@ BOOL CSqliteManager::CheckData (CString TableName, int Col, BOOL DISTINCT, CStri
 	{
 		CString CheckData = _T("");
 
-		if (SelectData(TableName, CheckData, Col, DISTINCT, COUNT, COLUMN, Params, GROUP, HAVING, Order, Limit, SortMode))
+		if (SelectData(TableName, CheckData, Col, Params, Order, Limit, SortMode, DISTINCT, COUNT, COLUMN, GROUP, HAVING))
 		{
 			if (!CheckData.IsEmpty() && CheckData != _T(""))
 			{
@@ -2900,7 +3016,54 @@ BOOL CSqliteManager::CheckData (CString TableName, int Col, BOOL DISTINCT, CStri
 		}
 		else
 		{
-			AfxMessageBox(_T("数据库查询失败!"));
+			// 提示错误信息
+			std::cout<<"数据库查询失败!"<<std::endl;
+
+			// 返回查询失败信息
+			return FALSE;
+		}
+	}
+
+	// 默认返回查询失败信息
+	return FALSE;
+}
+
+
+// 在目标数据表中检查数据值
+BOOL CSqliteManager::CheckData (CString TableName, CString Column, CString Params, CString Order, CString Limit, int SortMode, BOOL DISTINCT, CString COUNT, CString COLUMN, CString GROUP, CString HAVING)
+{
+	// 若数据库未连接成功
+	if (!IsConnect)
+	{
+		// 提示错误信息
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
+
+		// 返回查询失败信息
+		return FALSE;
+	}
+	else
+	{
+		CString CheckData = _T("");
+		if(Column == _T("") || Column.IsEmpty())
+			Column = _T("*");
+
+		if (SelectData(TableName, CheckData, Column, Params, Order, Limit, SortMode, DISTINCT, COUNT, COLUMN, GROUP, HAVING))
+		{
+			if (!CheckData.IsEmpty() && CheckData != _T(""))
+			{
+				// 返回目标数据存在
+				return TRUE;
+			}
+			else
+			{
+				// 返回目标数据不存在
+				return FALSE;
+			}
+		}
+		else
+		{
+			// 提示错误信息
+			std::cout<<"数据库查询失败!"<<std::endl;
 
 			// 返回查询失败信息
 			return FALSE;
@@ -2919,7 +3082,7 @@ BOOL CSqliteManager::CountNumber(CString TableName, CString Params, int &Count)
 	if (!IsConnect)
 	{
 		// 提示错误信息
-		AfxMessageBox(_T("数据库未连接，请先连接数据库!"));
+		std::cout<<"数据库未连接，请先连接数据库!"<<std::endl;
 
 		// 返回创建失败信息
 		return FALSE;
@@ -2952,7 +3115,7 @@ BOOL CSqliteManager::CountNumber(CString TableName, CString Params, int &Count)
 			if (sqlite3_get_table(db, GetSQL, &pRes, &nRow, &nCol, &errMsg) != SQLITE_OK)
 			{
 				// 提示错误信息
-				::MessageBox(NULL, (CString)sqlite3_errmsg(db), NULL, NULL);
+				std::cout<<sqlite3_errmsg(db)<<std::endl;
 
 				// 返回获取失败
 				IsSuccess = FALSE;
@@ -2994,7 +3157,7 @@ BOOL CSqliteManager::CountNumber(CString TableName, CString Params, int &Count)
 		catch (...)
 		{
 			// 弹出错误信息
-			AfxMessageBox(_T("无法从数据库中获得表名"));
+			std::cout<<"无法从数据库中获得表名!"<<std::endl;
 
 			// 返回0个数据
 			Count = 0;
@@ -3012,328 +3175,514 @@ BOOL CSqliteManager::CountNumber(CString TableName, CString Params, int &Count)
 }
 
 
-// 向目标数据表中导入数据项
-BOOL CSqliteManager::ImportData (CString TableName, CString TargetTableName, CString Params)
-{
-	return true;
-}
-
-
-// 从目标数据表中导出数据项
-BOOL CSqliteManager::ExportData (CString TableName, CString TargetTableName, CString Params)
-{
-	return true;
-}
-
-
-// 删除目标数据表中行据数项
-BOOL CSqliteManager::DeleteRowData(CString TableName, int Row)
-{
-	return true;
-}
-
-
-// 删除目标数据表中列据数项
-BOOL CSqliteManager::DeleteColData(CString TableName, int Col)
-{
-	return true;
-}
-
-
-// 删除目标数据表中初据数项
-BOOL CSqliteManager::DeleteMinData(CString TableName)
-{
-	return true;
-}
-
-
-// 删除目标数据表中间据数项
-BOOL CSqliteManager::DeleteMidData(CString TableName)
-{
-	return true;
-}
-
-
-// 删除目标数据表中末据数项
-BOOL CSqliteManager::DeleteMaxData(CString TableName)
-{
-	return true;
-}
-
-
-// 修改目标数据表中行据数项
-BOOL CSqliteManager::UpdataRowData(CString TableName, int Row, CString UpdataData)
-{
-	return true;
-}
-
-
-// 修改目标数据表中列据数项
-BOOL CSqliteManager::UpdataColData(CString TableName, int Col, CString UpdataData)
-{
-	return true;
-}
-
-
-// 修改目标数据表中初据数项
-BOOL CSqliteManager::UpdataMinData(CString TableName, CString UpdataData)
-{
-	return true;
-}
-
-
-// 修改目标数据表中间据数项
-BOOL CSqliteManager::UpdataMidData(CString TableName, CString UpdataData)
-{
-	return true;
-}
-
-
-// 修改目标数据表中末据数项
-BOOL CSqliteManager::UpdataMaxData(CString TableName, CString UpdataData)
-{
-	return true;
-}
-
-
-// 检索目标数据表中行据数项
-BOOL CSqliteManager::SelectRowData(CString TableName, int Row, CString &RowData)
-{
-	return true;
-}
-
-
-// 检索目标数据表中列据数项
-BOOL CSqliteManager::SelectColData(CString TableName, int Col, CString &ColData)
-{
-	return true;
-}
-
-
-// 检索目标数据表中初据数项
-BOOL CSqliteManager::SelectMinData(CString TableName, CString &MinData)
-{
-	return true;
-}
-
-
-// 修改目标数据表中间据数项
-BOOL CSqliteManager::SelectMidData(CString TableName, CString &MidData)
-{
-	return true;
-}
-
-
-// 检索目标数据表中末据数项
-BOOL CSqliteManager::SelectMaxData(CString TableName, CString &MaxData)
-{
-	return true;
-}
-
-
-// 为目标数据表中据数项排序
-BOOL CSqliteManager::SelectSortData(CString TableName, int Sort, CString &SortData)
-{
-	return true;
-}
-
-
-// 重新排列数据表据数项顺序
-BOOL CSqliteManager::ChangeSortData(CString TableName, int Sort)
-{
-	return true;
-}
-
-
-// 从目标数据表中筛选数据项
-BOOL CSqliteManager::FilterData(CString TableName, CString Params, CString &FilterData)
-{
-	return true;
-}
-
-
-// 从目标数据表中得到随机数据项
-BOOL CSqliteManager::RanData(CString TableName, CString Params, CString &RanData)
-{
-	return true;
-}
-
-
 ///////////////////////////////////数据项计算代码////////////////////////////////////////////////////
 
 
 // 从目标数据表中求数据项和
-BOOL CSqliteManager::SumData(CString TableName, CString Params, int &SumData)
+BOOL CSqliteManager::SumData(CString TableName, CString Column, CString Params, double &SumData)
 {
-	return true;
-}
+	// 链表对象
+	vector<CString> Result;
 
+	// 查询数据
+	if(!SelectData(TableName, Result, Params))
+	{
+		// 提示错误信息
+		std::cout<<"查询数据操作失败!"<<std::endl;
 
-// 从目标数据表中求数据项差
-BOOL CSqliteManager::SubData(CString TableName, CString Params, int &SubData)
-{
-	return true;
+		return FALSE;
+	}
+	
+	// 获取列名
+	CString ColName;
+	GetColName(TableName, ColName);
+
+	// 分割字符串
+	CStringArray pArray;
+	Split(ColName, _T(";"), pArray);
+
+	// 匹配列
+	int col = 0, size = (int)pArray.GetSize();
+	for(int c = 0; c < size; c++)
+	{
+		if(pArray.GetAt(c) == Column)
+			col = c;
+	}
+
+	//从这里开始进行转化，这是一个宏定义
+	USES_CONVERSION;
+
+	// 初始化
+	SumData = 0;
+
+	// 循环相加
+	for(int i = 0; i < (int)Result.size(); i += size -1)
+	{
+		const char* temp = T2A(Result.at(i + col).GetBuffer(0));
+		Result.at(i + col).ReleaseBuffer();
+
+		// 转换类型并求和
+		double value = atof(temp);
+		SumData += value;
+	}
+
+	//返回查询成功 
+	return TRUE;
 }
 
 
 // 从目标数据表中求数据项积
-BOOL CSqliteManager::ProductData(CString TableName, CString Params, int &ProductData)
+BOOL CSqliteManager::ProductData(CString TableName, CString Column, CString Params, double &ProductData)
 {
-	return true;
-}
+	// 链表对象
+	vector<CString> Result;
 
+	// 查询数据
+	if(!SelectData(TableName, Result, Params))
+	{
+		// 提示错误信息
+		std::cout<<"查询数据操作失败!"<<std::endl;
 
-// 从目标数据表中求数据项商
-BOOL CSqliteManager::QuotientData(CString TableName, CString Params, int &QuotientData)
-{
-	return true;
-}
+		return FALSE;
+	}
+	
+	// 获取列名
+	CString ColName;
+	GetColName(TableName, ColName);
 
+	// 分割字符串
+	CStringArray pArray;
+	Split(ColName, _T(";"), pArray);
 
-// 从目标数据表中求数据项余
-BOOL CSqliteManager::ModData(CString TableName, CString Params, int &ModData)
-{
-	return true;
-}
+	// 匹配列
+	int col = 0, size = (int)pArray.GetSize();
+	for(int c = 0; c < size; c++)
+	{
+		if(pArray.GetAt(c) == Column)
+			col = c;
+	}
 
+	//从这里开始进行转化，这是一个宏定义
+	USES_CONVERSION;
 
-// 从目标数据表中求数据项幂
-BOOL CSqliteManager::PowerData(CString TableName, CString Params, int &PowerData, int &Power)
-{
-	return true;
-}
+	// 初始化
+	ProductData = 1;
 
+	// 循环相加
+	for(int i = 0; i < (int)Result.size(); i += size -1)
+	{
+		const char* temp = T2A(Result.at(i + col).GetBuffer(0));
+		Result.at(i + col).ReleaseBuffer();
 
-// 从目标数据表中求数据项对数
-BOOL CSqliteManager::LogData(CString TableName, CString Params, int &LogData, int &Log)
-{
-	return true;
-}
+		// 转换类型并求和
+		double value = atof(temp);
+		ProductData *= value;
+	}
 
-
-// 从目标数据表中求数据项阶乘
-BOOL CSqliteManager::FactData(CString TableName, CString Params, int &FactData)
-{
-	return true;
-}
-
-
-// 从目标数据表中求数据项乘方
-BOOL CSqliteManager::ExpData(CString TableName, CString Params, int &ExpData, int &Exp)
-{
-	return true;
-}
-
-
-// 从目标数据表中求数据项众数
-BOOL CSqliteManager::PluData(CString TableName, CString Params, int &PluData)
-{
-	return true;
-}
-
-
-// 从目标数据表中求数据项极限
-BOOL CSqliteManager::LimData(CString TableName, CString Params, int &LimData)
-{
-	return true;
-}
-
-
-// 从目标数据表中求数据项正弦
-BOOL CSqliteManager::SinData(CString TableName, CString Params, int &SinData)
-{
-	return true;
-}
-
-
-// 从目标数据表中求数据项余弦
-BOOL CSqliteManager::CosData(CString TableName, CString Params, int &CosData)
-{
-	return true;
-}
-
-
-// 从目标数据表中求数据项正切
-BOOL CSqliteManager::TanData(CString TableName, CString Params, int &TanData)
-{
-	return true;
+	//返回查询成功 
+	return TRUE;
 }
 
 
 // 从目标数据表中求数据项平均数
-BOOL CSqliteManager::AvgData(CString TableName, CString Params, int &AvgData)
+BOOL CSqliteManager::AvgData(CString TableName, CString Column, CString Params, double &AvgData)
 {
-	return true;
+	// 链表对象
+	vector<CString> Result;
+
+	// 查询数据
+	if(!SelectData(TableName, Result, Params))
+	{
+		// 提示错误信息
+		std::cout<<"查询数据操作失败!"<<std::endl;
+
+		return FALSE;
+	}
+	
+	// 先初始化并求和
+	double value = 0;
+	AvgData   = 0;
+
+	SumData(TableName, Column, Params, value);
+
+	// 获取列名
+	CString ColName;
+	GetColName(TableName, ColName);
+
+	// 分割字符串
+	CStringArray pArray;
+	Split(ColName, _T(";"), pArray);
+
+	// 求平均数
+	AvgData = value / ( (int)Result.size() / (int)pArray.GetSize() -1 );
+
+	//返回查询成功 
+	return TRUE;
+}
+
+
+// 从目标数据表中求数据项众数
+BOOL CSqliteManager::PluData(CString TableName, CString Column, CString Params, double &PluData)
+{
+	// 链表对象
+	vector<CString> Result;
+	vector<double>  Values;
+
+	// 查询数据
+	if(!SelectData(TableName, Result, Params))
+	{
+		// 提示错误信息
+		std::cout<<"查询数据操作失败!"<<std::endl;
+
+		return FALSE;
+	}
+
+	// 初始化
+	PluData = 0;
+
+	// 获取列名
+	CString ColName;
+	GetColName(TableName, ColName);
+
+	// 分割字符串
+	CStringArray pArray;
+	Split(ColName, _T(";"), pArray);
+
+	// 匹配列
+	int col = 0, size = (int)pArray.GetSize();
+	for(int c = 0; c < size; c++)
+	{
+		if(pArray.GetAt(c) == Column)
+			col = c;
+	}
+
+	//从这里开始进行转化，这是一个宏定义
+	USES_CONVERSION;
+
+	// 循环取值
+	for(int i = 0; i < (int)Result.size(); i += size -1)
+	{
+		const char* temp = T2A(Result.at(i + col).GetBuffer(0));
+		Result.at(i + col).ReleaseBuffer();
+
+		// 转换类型
+		double value = atof(temp);
+		
+		// 保存结果
+		Values.push_back(value);
+	}
+
+	// 升序排序
+	sort(Values.begin(), Values.end());
+
+	// 出现次数 & 最大众数 & 众数下标
+	int count = 0, max = 0, index = 0;
+
+	// 遍历结果
+	for(int j = 0; j < (int)Values.size(); j++)
+	{
+		// 记录出现次数,存在连续两个数相等，则当前众数+1
+		if(Values[j] == Values[j +1])
+		{
+			count++;
+		}
+		else
+		{
+			// 充值计数
+			count = 0;
+		}
+
+		// 如果当前众数超过最大众数则替换
+		if(count > max)
+		{
+			max = count;
+			index = j;
+		}
+	}
+
+	// 不存在众数
+	if(max == 0)
+	{
+		// 提示错误信息
+		std::cout<<"众数不存在!"<<std::endl;
+	}
+	else
+	{
+		// 求出众数
+		PluData = Values[index];
+	}
+
+	//返回查询成功
+	return TRUE;
 }
 
 
 // 从目标数据表中求数据项中位数
-BOOL CSqliteManager::MidData(CString TableName, CString Params, int &MidData)
+BOOL CSqliteManager::MidData(CString TableName, CString Column, CString Params, double &MidData)
 {
-	return true;
-}
+	// 链表对象
+	vector<CString> Result;
+	vector<double>  Values;
 
+	// 查询数据
+	if(!SelectData(TableName, Result, Params))
+	{
+		// 提示错误信息
+		std::cout<<"查询数据操作失败!"<<std::endl;
 
-// 从目标数据表中求数据项百分比
-BOOL CSqliteManager::PerData(CString TableName, CString Params, int &PerData)
-{
-	return true;
-}
+		return FALSE;
+	}
 
+	// 初始化
+	MidData = 0;
 
-// 从目标数据表中求数据项平方根
-BOOL CSqliteManager::SqrData(CString TableName, CString Params, int &SqrData)
-{
-	return true;
-}
+	// 获取列名
+	CString ColName;
+	GetColName(TableName, ColName);
 
+	// 分割字符串
+	CStringArray pArray;
+	Split(ColName, _T(";"), pArray);
 
-// 从目标数据表中求数据项立方根
-BOOL CSqliteManager::CubData(CString TableName, CString Params, int &CubData)
-{
-	return true;
-}
+	// 匹配列
+	int col = 0, size = (int)pArray.GetSize();
+	for(int c = 0; c < size; c++)
+	{
+		if(pArray.GetAt(c) == Column)
+			col = c;
+	}
 
+	//从这里开始进行转化，这是一个宏定义
+	USES_CONVERSION;
 
-// 从目标数据表中求数据项绝对值
-BOOL CSqliteManager::AbsData(CString TableName, CString Params, int &AbsData)
-{
-	return true;
+	// 循环取值
+	for(int i = 0; i < (int)Result.size(); i += size -1)
+	{
+		const char* temp = T2A(Result.at(i + col).GetBuffer(0));
+		Result.at(i + col).ReleaseBuffer();
+
+		// 转换类型
+		double value = atof(temp);
+		
+		// 保存结果
+		Values.push_back(value);
+	}
+
+	// 升序排序
+	sort(Values.begin(), Values.end());
+
+	// 得到有几条数据
+	int count = Values.size();
+
+	//取模
+	if( count % 2 == 0 )
+	{
+		// 偶数
+		int num = count / 2;
+
+		// 求中位数
+		MidData = ( Values.at(num -1) + Values.at(num) ) / 2;
+	}
+	else
+	{
+		// 奇数
+		int num = (count +1) / 2;
+
+		// 求中位数
+		MidData =  Values.at(num -1);
+	}
+
+	//返回查询成功
+	return TRUE;
 }
 
 
 // 从目标数据表中求数据项最大值
-BOOL CSqliteManager::MaxData(CString TableName, CString Params, int &AbsData)
+BOOL CSqliteManager::MaxData(CString TableName, CString Column, CString Params, double &MaxData)
 {
-	return true;
+	// 链表对象
+	vector<CString> Result;
+	vector<double>  Values;
+
+	// 查询数据
+	if(!SelectData(TableName, Result, Params))
+	{
+		// 提示错误信息
+		std::cout<<"查询数据操作失败!"<<std::endl;
+
+		return FALSE;
+	}
+
+	// 初始化
+	MaxData = 0;
+
+	// 获取列名
+	CString ColName;
+	GetColName(TableName, ColName);
+
+	// 分割字符串
+	CStringArray pArray;
+	Split(ColName, _T(";"), pArray);
+
+	// 匹配列
+	int col = 0, size = (int)pArray.GetSize();
+	for(int c = 0; c < size; c++)
+	{
+		if(pArray.GetAt(c) == Column)
+			col = c;
+	}
+
+	//从这里开始进行转化，这是一个宏定义
+	USES_CONVERSION;
+
+	// 循环取值
+	for(int i = 0; i < (int)Result.size(); i += size -1)
+	{
+		const char* temp = T2A(Result.at(i + col).GetBuffer(0));
+		Result.at(i + col).ReleaseBuffer();
+
+		// 转换类型
+		double value = atof(temp);
+		
+		// 保存结果
+		Values.push_back(value);
+	}
+
+	// 降序排序
+	sort(Values.rbegin(), Values.rend());
+
+	// 求最大值
+	MaxData = Values.at(0);
+
+	//返回查询成功
+	return TRUE;
 }
 
 
 // 从目标数据表中求数据项最小值
-BOOL CSqliteManager::MinData(CString TableName, CString Params, int &AbsData)
+BOOL CSqliteManager::MinData(CString TableName, CString Column, CString Params, double &MinData)
 {
-	return true;
-}
+	// 链表对象
+	vector<CString> Result;
+	vector<double>  Values;
 
+	// 查询数据
+	if(!SelectData(TableName, Result, Params))
+	{
+		// 提示错误信息
+		std::cout<<"查询数据操作失败!"<<std::endl;
 
-// 从目标数据表中求数据项最大公约数
-BOOL CSqliteManager::GcdData(CString TableName, CString Params, int &GcdData)
-{
-	return true;
-}
+		return FALSE;
+	}
 
+	// 初始化
+	MinData = 0;
 
-// 从目标数据表中求数据项最小公倍数
-BOOL CSqliteManager::LcmData(CString TableName, CString Params, int &LcmData)
-{
-	return true;
+	// 获取列名
+	CString ColName;
+	GetColName(TableName, ColName);
+
+	// 分割字符串
+	CStringArray pArray;
+	Split(ColName, _T(";"), pArray);
+
+	// 匹配列
+	int col = 0, size = (int)pArray.GetSize();
+	for(int c = 0; c < size; c++)
+	{
+		if(pArray.GetAt(c) == Column)
+			col = c;
+	}
+
+	//从这里开始进行转化，这是一个宏定义
+	USES_CONVERSION;
+
+	// 循环取值
+	for(int i = 0; i < (int)Result.size(); i += size -1)
+	{
+		const char* temp = T2A(Result.at(i + col).GetBuffer(0));
+		Result.at(i + col).ReleaseBuffer();
+
+		// 转换类型
+		double value = atof(temp);
+		
+		// 保存结果
+		Values.push_back(value);
+	}
+
+	// 升序排序
+	sort(Values.begin(), Values.end());
+
+	// 求最小值
+	MinData = Values.at(0);
+
+	//返回查询成功
+	return TRUE;
 }
 
 
 // 从目标数据表中取数据项随机数
-BOOL RanData(CString TableName, CString Params, int &RanData)
+BOOL CSqliteManager::RandData(CString TableName, CString Column, CString Params, int &RanData)
 {
-	return true;
+	// 链表对象
+	vector<CString> Result;
+	vector<int>  Values;
+
+	// 查询数据
+	if(!SelectData(TableName, Result, Params))
+	{
+		// 提示错误信息
+		std::cout<<"查询数据操作失败!"<<std::endl;
+
+		return FALSE;
+	}
+
+	// 初始化
+	RanData = 0;
+
+	// 获取列名
+	CString ColName;
+	GetColName(TableName, ColName);
+
+	// 分割字符串
+	CStringArray pArray;
+	Split(ColName, _T(";"), pArray);
+
+	// 匹配列
+	int col = 0, size = (int)pArray.GetSize();
+	for(int c = 0; c < size; c++)
+	{
+		if(pArray.GetAt(c) == Column)
+			col = c;
+	}
+
+	// 从这里开始进行转化，这是一个宏定义
+	USES_CONVERSION;
+
+	// 循环取值
+	for(int i = 0; i < (int)Result.size(); i += size -1)
+	{
+		const char* temp = T2A(Result.at(i + col).GetBuffer(0));
+		Result.at(i + col).ReleaseBuffer();
+
+		// 转换类型
+		int value = atoi(temp);
+		
+		// 保存结果
+		Values.push_back(value);
+	}
+
+	// 产生随机数种子 (利用系统时钟，产生不同的随机数种子)
+	srand((unsigned)time(NULL));
+
+	// 在最小值与最大值之间产生随机数 rand()%(b-a+1)+a;
+	double Min, Max;
+	MinData(TableName, Column, Params, Min);
+	MaxData(TableName, Column, Params, Max);
+	RanData = rand()% ((int)Max - (int)Min +1) +(int)Min;
+
+	//返回查询成功
+	return TRUE;
 }
 
 

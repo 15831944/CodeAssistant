@@ -27,6 +27,7 @@ public:
 	void OnSuccess();
 	void OnError();
 	void Split(CString source, CString divKey, CStringArray &dest);
+	BOOL OnCheck(CString Target);
 
 // 对话框数据
 	enum { IDD = IDD_WEB_EDIT_DIALOG };

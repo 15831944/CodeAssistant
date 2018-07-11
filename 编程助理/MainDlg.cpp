@@ -168,7 +168,7 @@ BOOL CMainDlg::OnInitDialog()
 	cf.dwEffects&=~CFE_UNDERLINE; //设置斜体，取消用cf.dwEffects&=~CFE_UNDERLINE;
 	cf.crTextColor = RGB(0,0,0);  //设置颜色
 	cf.yHeight = 14 * 14;         //设置高度
-	strcpy_s(cf.szFaceName ,_T("宋体"));//设置字体
+	strcpy_s(cf.szFaceName, 1024 ,_T("宋体"));//设置字体
 	m_Edit.SetDefaultCharFormat(cf);
 
 	::SendMessage(m_Edit, EM_SETLANGOPTIONS, 0, 0);

@@ -66,12 +66,12 @@ BOOL CLoginDlg::OnInitDialog()
 		UserName.ReleaseBuffer();
 		Password.ReleaseBuffer();*/
 
-		if (!theApp.m_Sql.SelectData(_T("用户账户"), UserName, 1, NULL, NULL, NULL, _T("Name Is Not Null")))
+		if (!theApp.m_Sql.SelectData(_T("用户账户"), UserName, 1, _T("Name Is Not Null")))
 		{
 			AfxMessageBox(_T("无法读取用户名!"));
 		}
 
-		if (!theApp.m_Sql.SelectData(_T("用户账户"), Password, 2, NULL, NULL, NULL, _T("Password Is Not Null")))
+		if (!theApp.m_Sql.SelectData(_T("用户账户"), Password, 2, _T("Password Is Not Null")))
 		{
 			AfxMessageBox(_T("无法读取用户密码!"));
 		}
@@ -172,7 +172,7 @@ void CLoginDlg::OnSuccess()
 		
 
 		// 判断数据表中是否存在数据
-		if (!theApp.m_Sql.CheckData(_T("用户账户"), 1, false, _T(""), _T(""), _T("Name Is Not Null")))
+		if (!theApp.m_Sql.CheckData(_T("用户账户"), 1))
 		{
 			// 若写入数据库失败
 			if (!theApp.m_Sql.InsertData(_T("用户账户"), _T("'1','") + UserName + _T("','") + Password + _T("'")))
@@ -197,7 +197,7 @@ void CLoginDlg::OnSuccess()
 	{
 		/*::WritePrivateProfileString(_T("Account"), _T("UserName"), _T(""), _T("./Setting.ini"));
 		::WritePrivateProfileString(_T("Account"), _T("Password"), _T(""), _T("./Setting.ini"));*/
-		if (theApp.m_Sql.CheckData(_T("用户账户"), 1, false, _T(""), _T(""), _T("Name Is Not Null")))
+		if (theApp.m_Sql.CheckData(_T("用户账户"), 1))
 		{
 			CString ColumnParams = _T("id = '', Name = '', Password = ''"),
 				Params = _T("Name Is Not Null");

@@ -344,7 +344,7 @@ JSONCPP_STRING JSON_API valueToString(UInt value);
 JSONCPP_STRING JSON_API valueToString(LargestInt value);
 JSONCPP_STRING JSON_API valueToString(LargestUInt value);
 JSONCPP_STRING JSON_API valueToString(double value, unsigned int precision = Value::defaultRealPrecision,
-                                      PrecisionType precisionType = PrecisionType::significantDigits);
+                                      PrecisionType precisionType = /*PrecisionType::*/significantDigits);
 JSONCPP_STRING JSON_API valueToString(bool value);
 JSONCPP_STRING JSON_API valueToQuotedString(const char* value);
 
