@@ -103,7 +103,6 @@ void CSettingDlg::OnReadSetting()
 
 	// 重置并添加默认项
 	m_Skin.ResetContent();
-	m_Skin.AddString(_T("跟随系统 (无皮肤)"));
 
 	// 添加找到的皮肤
 	while (IsFind)
@@ -133,8 +132,7 @@ void CSettingDlg::OnSelchangeSkinCombo()
 	CString Name = _T("Skin\\") + SkinName;
 
 	// 更换皮肤
-	if(SkinName != _T("跟随系统 (无皮肤)"))
-		skinppLoadSkin((TCHAR *)(LPCSTR)Name);
+	skinppLoadSkin((TCHAR *)(LPCSTR)Name);
 
 	// 刷新窗口
 	Invalidate();

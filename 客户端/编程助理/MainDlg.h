@@ -72,4 +72,5 @@ public:
 
 	virtual void OnCancel();
 	
+	afx_msg void OnSetfocusCodeRichedit();
 };

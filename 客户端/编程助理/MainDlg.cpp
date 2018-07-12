@@ -109,6 +109,7 @@ BEGIN_MESSAGE_MAP(CMainDlg, CDialogEx)
 	ON_EN_CHANGE(IDC_CODE_RICHEDIT, &CMainDlg::OnChangeCodeRichedit)
 	ON_BN_CLICKED(IDC_MANAGER_BUTTON, &CMainDlg::OnManager)
 	
+	ON_EN_SETFOCUS(IDC_CODE_RICHEDIT, &CMainDlg::OnSetfocusCodeRichedit)
 END_MESSAGE_MAP()
 
 
@@ -453,6 +454,7 @@ BOOL CMainDlg::PreTranslateMessage(MSG* pMsg)
 			{
 				// 取消选择
 				m_List.SetItemState(m_List.GetNextItem(-1, LVIS_SELECTED), 0, LVIS_SELECTED | LVIS_FOCUSED);
+				GetDlgItem(IDC_NEW_BUTTON)->SetWindowText(_T("添加方法"));
 				return true;
 			}
 		}
@@ -631,9 +633,10 @@ void CMainDlg::OnChangeCodeRichedit()
 	if ( GetPrivateProfileInt(_T("Setting"), _T("Save"), 0, _T("./Setting.ini")) == 1)
 	{
 		CString Path = m_List.GetItemText(m_List.GetNextItem(-1, LVIS_SELECTED), 0);
-		CString Class, Type;
+		CString Class, Type, Text;
 		m_Class.GetWindowText(Class);
 		m_Type.GetWindowText(Type);
+		m_Edit.GetWindowText(Text);
 
 		// 如果分类信息不完整
 		if(Class.IsEmpty() || Type.IsEmpty())
@@ -643,7 +646,7 @@ void CMainDlg::OnChangeCodeRichedit()
 		else
 		{
 			// 已有源码
-			if(!Path.IsEmpty() && m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
+			if(!Path.IsEmpty() && !Text.IsEmpty() && m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
 			{
 				// 目录检测
 				DWORD DirPath = GetFileAttributes(_T("Code\\") + Class);
@@ -669,6 +672,12 @@ void CMainDlg::OnChangeCodeRichedit()
 }
 
 
+void CMainDlg::OnSetfocusCodeRichedit()
+{
+	GetDlgItem(IDC_NEW_BUTTON)->SetWindowText(_T("添加方法"));
+}
+
+
 void CMainDlg::OnClickCodeList(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	VMPBEGIN
@@ -689,7 +698,10 @@ void CMainDlg::OnClickCodeList(NMHDR *pNMHDR, LRESULT *pResult)
 		CString FilePath = _T("Code\\") + Class + _T("\\") + Type + _T("\\");
 
 		m_Edit.StreamInFromResource(FilePath + Name + _T(".rtf"), _T("SF_RTF"));
+		GetDlgItem(IDC_NEW_BUTTON)->SetWindowText(_T("编辑方法"));
 	}
+	else
+		GetDlgItem(IDC_NEW_BUTTON)->SetWindowText(_T("添加方法"));
 
 	*pResult = 0;
 
@@ -1331,14 +1343,24 @@ void CMainDlg::OnFont()
 
 void CMainDlg::OnNew()
 {
-	// 取消选择
-	m_List.SetItemState(m_List.GetNextItem(-1, LVIS_SELECTED), 0, LVIS_SELECTED | LVIS_FOCUSED);
+	CString Type;
+	GetDlgItem(IDC_NEW_BUTTON)->GetWindowText(Type);
 
-	// 清空内容
-	m_Edit.SetWindowText(_T(""));
+	if(Type == _T("添加方法"))
+	{
+		// 取消选择
+		m_List.SetItemState(m_List.GetNextItem(-1, LVIS_SELECTED), 0, LVIS_SELECTED | LVIS_FOCUSED);
 
-	// 添加方法
-	OnOK();
+		// 清空内容
+		m_Edit.SetWindowText(_T(""));
+
+		// 添加方法
+		OnOK();
+	}
+	else
+	{
+		OnEditFunction();
+	}
 }
 
 

@@ -91,8 +91,9 @@
       <OptimizeReferences>true</OptimizeReferences>
       <IgnoreSpecificDefaultLibraries>MSVCRT</IgnoreSpecificDefaultLibraries>
       <AdditionalLibraryDirectories>C:\Users\Shadow\Documents\Visual Studio 2010\Projects\编程助理\编程助理\Library\pthreads\x86;C:\Users\Shadow\Documents\Visual Studio 2010\Projects\编程助理\编程助理\Library\curl;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>./Library/curl/libcurl_ssl_ssh2.lib;./Library/pthreads/x86/pthreadVC2.lib;Sensapi.lib;./Library/json/lib_json.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>./Library/curl/libcurl_ssl_ssh2.lib;./Library/pthreads/x86/pthreadVC2.lib;Sensapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4049 %(AdditionalOptions)</AdditionalOptions>
+      <MinimumRequiredVersion>5.01</MinimumRequiredVersion>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
@@ -180,6 +181,9 @@
     <ResourceCompile Include="编程助理.rc" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="json\lib_json.vcxproj">
+      <Project>{1e6c2c1c-6453-4129-ae3f-0ee8e6599c89}</Project>
+    </ProjectReference>
     <ProjectReference Include="sqlite3\sqlite3.vcxproj">
       <Project>{4a28904f-55db-0e4a-a131-469c203ca271}</Project>
     </ProjectReference>
