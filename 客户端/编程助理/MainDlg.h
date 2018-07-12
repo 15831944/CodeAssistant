@@ -31,8 +31,20 @@ public:
 
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
+
+	// 图标
 	HICON m_hIcon;
+
+	// 设置对话框
 	CSettingDlg * m_Setting;
+
+	// 操作类型
+	int Type;
+
+	// 线程对象
+	CWinThread * m_hOperate;
+
+	BOOL IsChange;
 
 	DECLARE_MESSAGE_MAP()
 public:
@@ -42,6 +54,10 @@ public:
 	// 子窗口消息
 	afx_msg LRESULT OnMessageChild(WPARAM wParam, LPARAM lParam);
 
+	// 工作者线程
+	static UINT Operate(LPVOID pParam);
+
+	// 各个控件消息映射
 	afx_msg void OnSave();
 	afx_msg void OnDelete();
 	afx_msg void OnOK();
@@ -61,6 +77,7 @@ public:
 	afx_msg void OnDropdownTypeCombo();
 
 	afx_msg void OnRichEditLink(NMHDR* in_pNotifyHeader, LRESULT*out_pResult ); 
+	afx_msg void OnSetfocusCodeRichedit();
 
 	afx_msg void OnEdit();
 	afx_msg void OnClearFormat();
@@ -71,6 +88,5 @@ public:
 	afx_msg void OnNew();
 
 	virtual void OnCancel();
-	
-	afx_msg void OnSetfocusCodeRichedit();
+	afx_msg void OnKillfocusCodeRichedit();
 };
