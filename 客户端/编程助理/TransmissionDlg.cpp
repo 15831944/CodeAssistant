@@ -25,6 +25,7 @@ CTransmissionDlg::CTransmissionDlg(CWnd* pParent /*=NULL*/)
 	m_Thread= NULL;
 
 	Target  = 0;
+	IsDownload = IsCode = IsProject = IsUpDate = IsSynchronize = FALSE;
 }
 
 CTransmissionDlg::~CTransmissionDlg()
@@ -542,14 +543,15 @@ UINT CTransmissionDlg::UploadFile(LPVOID pParam)
 		pWnd->SetDlgItemText(IDC_STATUS_STATIC, _T("正在校验上传参数..."));
 
 		// 判断上传类型
-		if(pWnd->IsCode)
+		pWnd->HttpPostFile("www.shadowviolet.cn", _T("/index/account/UpLoadFile"), 80, pWnd->UploadPath, "file", "multipart/form-data");
+		/*if(pWnd->IsCode)
 		{
 			pWnd->HttpPostFile("www.shadowviolet.cn", _T("/index/account/UpLoadFile"), 80, pWnd->UploadPath, "file", "application/rtf");
 		}
 		else
 		{
 			pWnd->HttpPostFile("www.shadowviolet.cn", _T("/index/account/UpLoadFile"), 80, pWnd->UploadPath, "file", "multipart/form-data");
-		}
+		}*/
 
 		// 进入临界区
 		EnterCriticalSection(pWnd->m_cs);
@@ -653,6 +655,12 @@ void CTransmissionDlg::Prepare()
 		DownloadPath = _T("http://www.shadowviolet.cn/cloud/") + TargetList->GetAt(Target);
 		DownloadName = _T("./Cache/") + DownloadPath.Right(DownloadPath.GetLength() - DownloadPath.ReverseFind('/') -1);
 
+		if(IsUpDate)
+		{
+			DownloadPath = _T("http://www.shadowviolet.cn/update/") + TargetList->GetAt(Target);
+			DownloadName = _T("./Cache/") + TargetList->GetAt(Target);
+		}
+
 		// 开始传输
 		if (m_Thread == NULL)
 		{
@@ -722,6 +730,35 @@ void CTransmissionDlg::Complete()
 			// 解压缩
 			AfxBeginThread(Decompression, this);
 		}
+		else if(IsUpDate)
+		{
+			// 得到文件名
+			CString FileName = DownloadName;
+			FileName.Replace(_T("./Cache/"), _T(""));
+
+			// 移动文件
+			if(!MoveFileEx(DownloadName, FileName, MOVEFILE_REPLACE_EXISTING))
+			{
+				AfxMessageBox(_T("移动目标失败!"));
+				return;
+			}
+
+			// 解压参数
+			CString Parament = _T("Application\\7z x -t7z -y ") + FileName;
+
+			// 等待主程序关闭之后执行解压
+			CString strParam = _T("/C choice /t 0.5 /d y /n > nul & tasklist | find /i \"编程助理.exe\" && taskkill /im 编程助理.exe /f || echo NotFind & ");
+			strParam += Parament;
+			strParam += _T(" & del ") + FileName;
+			strParam += _T(" & Start 编程助理.exe & pause");
+
+			// 调用命令行 执行更新
+			ShellExecute(NULL, NULL, _T("cmd.exe"), strParam, NULL, SW_HIDE);
+
+			// 发出更新命令
+			CDialogEx::OnCancel();
+			::SendMessage(AfxGetApp()->GetMainWnd()->GetSafeHwnd(), WM_COMMAND, 102, 0);
+		}
 		else
 		{
 			CString Parent = TextArray.GetAt(2), Sub = TextArray.GetAt(3), Item = TextArray.GetAt(4);
@@ -774,6 +811,14 @@ void CTransmissionDlg::Complete()
 	{
 		// 准备传输
 		Prepare();
+	}
+	else
+	{
+		// 自动关闭
+		if(IsSynchronize)
+		{
+			CDialogEx::OnCancel();
+		}
 	}
 }
 

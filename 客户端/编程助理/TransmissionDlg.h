@@ -14,7 +14,7 @@ public:
 	virtual ~CTransmissionDlg();
 
 	// 传输模式标识&传输对象标识
-	BOOL IsDownload, IsCode, IsProject;
+	BOOL IsDownload, IsCode, IsProject, IsUpDate, IsSynchronize;
 
 	// 下载组件对象
 	CurlDownloader * m_pCurlDownloader;

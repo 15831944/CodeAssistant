@@ -184,6 +184,9 @@
     <ProjectReference Include="json\lib_json.vcxproj">
       <Project>{1e6c2c1c-6453-4129-ae3f-0ee8e6599c89}</Project>
     </ProjectReference>
+    <ProjectReference Include="lzma\clzma.vcxproj">
+      <Project>{29c1a7c2-e289-9545-84d3-0efbfdb1844d}</Project>
+    </ProjectReference>
     <ProjectReference Include="sqlite3\sqlite3.vcxproj">
       <Project>{4a28904f-55db-0e4a-a131-469c203ca271}</Project>
     </ProjectReference>

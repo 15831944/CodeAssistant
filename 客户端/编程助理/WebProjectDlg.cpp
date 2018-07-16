@@ -789,7 +789,10 @@ void CWebProjectDlg::OnClickProjectList(NMHDR *pNMHDR, LRESULT *pResult)
 void CWebProjectDlg::OnDblclkProjectList(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
-	// TODO: 在此添加控件通知处理程序代码
+
+	// 编辑项目
+	OnEdit();
+
 	*pResult = 0;
 }
 
@@ -887,7 +890,10 @@ void CWebProjectDlg::OnClickVersionList(NMHDR *pNMHDR, LRESULT *pResult)
 void CWebProjectDlg::OnDblclkVersionList(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
-	// TODO: 在此添加控件通知处理程序代码
+
+	// 执行克隆
+	OnClone();
+
 	*pResult = 0;
 }
 

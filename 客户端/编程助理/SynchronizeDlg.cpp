@@ -19,6 +19,8 @@ CSynchronizeDlg::CSynchronizeDlg(CWnd* pParent /*=NULL*/)
 	IsCode = TRUE;
 	m_hOperate = NULL;
 	Type = 1;
+
+	IsAutoSynchronize = FALSE;
 }
 
 CSynchronizeDlg::~CSynchronizeDlg()
@@ -63,7 +65,8 @@ BOOL CSynchronizeDlg::OnInitDialog()
 
 
 	// 获取服务器数据
-	GetServerInfo();
+	if(!IsAutoSynchronize)
+		GetServerInfo();
 
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
@@ -369,6 +372,230 @@ void CSynchronizeDlg::GetTreeData(CTreeCtrl * pTreeCtrl, HTREEITEM hitem, BOOL I
 				IsFile = false;
 			}
 		}
+	}
+}
+
+
+void CSynchronizeDlg::OnAutoSynchronize()
+{
+	// 获取服务器数据
+	Parameter.Format(_T("id=%s&type=%d"), UserId, Type);
+
+	// 局部变量
+	CString RecvData;
+	BOOL IsSuccess;
+
+	// 获取服务器数据
+	try
+	{
+		RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/GetFileInfo"), 80, Parameter, IsSuccess);
+		if (RecvData == _T("") || RecvData.IsEmpty() || !IsSuccess)
+		{
+			//AfxMessageBox(_T("无法连接到服务器, 请检查网络。"));
+		}
+		else
+		{
+			if (IsSuccess)
+			{
+				if( RecvData.Replace(_T(";"), _T(";")) )
+				{
+					ServerInfo = RecvData;
+					OnSuccess();
+
+					// 初始化数据
+					IsFile = false;
+					TreeData = _T("");
+					TargetList.RemoveAll();
+
+					// 树数据列表
+					CStringArray Local_TargetList, Server_TargetList;
+
+					// 得到本地树数据
+					HTREEITEM root = m_Local.GetRootItem();
+					GetTreeData(&m_Local, root, false);
+					Local_TargetList.Append(TargetList);
+
+					// 初始化数据
+					IsFile = false;
+					TreeData = _T("");
+					TargetList.RemoveAll();
+
+					// 得到云端树数据
+					root = m_Server.GetRootItem();
+					GetTreeData(&m_Server, root, false);
+					Server_TargetList.Append(TargetList);
+					
+					// 对比云端与本地数据数量
+					// 云端没有本地数据
+					if(Server_TargetList.GetSize() < Local_TargetList.GetSize())
+					{
+						
+						// 得到云端缺失的本地数据列表
+						for(int i=0; i<Server_TargetList.GetSize(); i++)
+						{
+							CString LocalData  = Local_TargetList .GetAt(i);
+							CString ServerData = Server_TargetList.GetAt(i);
+							
+							// 除去云端已有数据
+							if(LocalData == ServerData)
+							{
+								Local_TargetList.RemoveAt(i);
+							}
+						}
+						
+						// 需要上传数据
+						if(Local_TargetList.GetSize() > 0)
+						{
+							CTransmissionDlg dlg;
+							dlg.TargetList = &Local_TargetList;
+							dlg.IsDownload = false;
+							dlg.IsCode     = IsCode;
+							dlg.IsSynchronize = true;
+							dlg.DoModal();
+						}
+						else
+						{
+							AfxMessageBox(_T("没有需要同步的文件!"));
+						}
+					}
+
+					// 本地没有云端数据
+					else if(Server_TargetList.GetSize() > Local_TargetList.GetSize())
+					{
+						// 得到本地缺失的云端数据列表
+						for(int i=0; i<Local_TargetList.GetSize(); i++)
+						{
+							CString LocalData  = Local_TargetList .GetAt(i);
+							CString ServerData = Server_TargetList.GetAt(i);
+
+							// 除去本地已有数据
+							if(LocalData == ServerData)
+							{
+								Server_TargetList.RemoveAt(i);
+							}
+						}
+
+						// 需要下载云端数据
+						if(Server_TargetList.GetSize() > 0)
+						{
+							CTransmissionDlg dlg;
+							dlg.TargetList = &Server_TargetList;
+							dlg.IsDownload = true;
+							dlg.IsCode     = IsCode;
+							dlg.IsSynchronize = true;
+							dlg.DoModal();
+						}
+						else
+						{
+							AfxMessageBox(_T("没有需要同步的文件!"));
+						}
+					}
+
+					// 判断云端与本地数据的修改时间
+					else
+					{
+						CStringArray Local_Time, Server_Time, UpLoad, DownLoad;
+
+						// 得到本地文件修改时间
+						for(int i=0; i<Local_TargetList.GetSize(); i++)
+						{
+							// 处理数据
+							CString LocalPath = Local_TargetList.GetAt(i);
+							LocalPath = LocalPath.Right(LocalPath.GetLength() - LocalPath.Find('/') -1);
+
+							CFileStatus Status;
+							if(CFile::GetStatus(LocalPath, Status))
+							{
+								CString ModifyTime = Status.m_mtime.Format("%Y-%m-%d %H:%M:%S");
+								Local_Time.Add(ModifyTime);
+							}
+						}
+						
+						for(int i=0; i<Server_TargetList.GetSize(); i++)
+						{
+							// 获取云端文件修改时间
+							try
+							{
+								Parameter.Format(_T("path=%s"), Server_TargetList.GetAt(i));
+								RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/GetFileModifyTime"), 80, Parameter, IsSuccess);
+								
+								if (RecvData == _T("") || RecvData.IsEmpty() || !IsSuccess)
+								{
+									//AfxMessageBox(_T("无法连接到服务器, 请检查网络。"));
+								}
+								else
+								{
+									if (IsSuccess)
+									{
+										if( RecvData.Replace(_T(":"), _T(":")) )
+										{
+											// 添加云端文件修改时间
+											Server_Time.Add(RecvData);
+										}
+										else
+										{
+											//AfxMessageBox(_T("数据读取失败，请稍后再试。"));
+										}
+									}
+									else
+									{
+										//AfxMessageBox(_T("无法连接到服务器, 请检查网络。"));
+									}
+								}
+							}
+							catch (...)
+							{
+								AfxMessageBox(_T("发生了异常，位于CSynchronizeDlg的OnAutoSynchronize方法。"));
+							}
+						}
+						
+						// 比对文件修改时间
+						for(int i=0; i<Local_Time.GetSize(); i++)
+						{
+							CString LocalData  = Local_Time .GetAt(i);
+							CString ServerData = Server_Time.GetAt(i);
+
+							// 如果数据不同
+							if(LocalData != ServerData)
+							{
+								if(LocalData > ServerData)
+								{
+									UpLoad.Add(Local_TargetList.GetAt(i));
+								}
+								else
+								{
+									DownLoad.Add(Server_TargetList.GetAt(i));
+								}
+							}
+						}
+
+						// 处理传输队列
+						if(UpLoad.GetSize() > 0)
+						{
+							CTransmissionDlg dlg;
+							dlg.TargetList = &UpLoad;
+							dlg.IsDownload = false;
+							dlg.IsCode     = IsCode;
+							dlg.IsSynchronize = true;
+							dlg.DoModal();
+						}
+						else if(DownLoad.GetSize() > 0)
+						{
+							CTransmissionDlg dlg;
+							dlg.TargetList = &DownLoad;
+							dlg.IsDownload = true;
+							dlg.IsCode     = IsCode;
+							dlg.IsSynchronize = true;
+							dlg.DoModal();
+						}
+					}
+				}
+			}
+		}
+	}
+	catch (...)
+	{
+		AfxMessageBox(_T("发生了异常，位于CSynchronizeDlg的OnAutoSynchronize方法。"));
 	}
 }
 

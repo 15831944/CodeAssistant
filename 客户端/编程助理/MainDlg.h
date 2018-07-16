@@ -26,6 +26,14 @@ public:
 	void Refresh(), OnHelp();
 	void OnEditFunction();
 
+	void Split(CString source, CString divKey, CStringArray &dest);
+	void Complete();
+	void OnError();
+	void OnSuccess();
+
+	bool Compress(const char*scrfilename,const char*desfilename);
+	bool Uncompress(const char*scrfilename,const char*desfilename);
+
 // 对话框数据
 	enum { IDD = IDD_MAIN_DIALOG };
 
@@ -44,7 +52,7 @@ protected:
 	// 线程对象
 	CWinThread * m_hOperate;
 
-	BOOL IsChange;
+	CString UpDateInfo, Error, Msg;
 
 	DECLARE_MESSAGE_MAP()
 public:
@@ -56,6 +64,7 @@ public:
 
 	// 工作者线程
 	static UINT Operate(LPVOID pParam);
+	static UINT UpDate (LPVOID pParam);
 
 	// 各个控件消息映射
 	afx_msg void OnSave();

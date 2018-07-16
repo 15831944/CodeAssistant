@@ -30,7 +30,7 @@ public:
 	vector<CString> pResult;
 
 	void Refresh();
-	static void CopyDirectory(CString source, CString target);
+	void CopyDirectory(CString source, CString target);
 	static void DeleteDirectory(CString Directory);
 
 	// 操作等待提示

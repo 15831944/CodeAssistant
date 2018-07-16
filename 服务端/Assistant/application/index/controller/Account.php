@@ -11,6 +11,7 @@ namespace app\index\controller;
 // 引入控制器
 use app\index\model\Group;
 use app\index\model\Project;
+use app\index\model\UpDate;
 use app\index\model\Version;
 use think\Controller;
 
@@ -900,5 +901,19 @@ class Account extends Controller
         else
             return "NotFind";
     }
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////
+    // 自动更新
+
+    public function GetUpDataInfo()
+    {
+        $update   = new UpDate();
+        $version  = $update->order('UpDateId desc')->select()[0]['Version'];
+        $filepath = $update->order('UpDateId desc')->select()[0]['FilePath'];
+
+        return $version.";".$filepath.";";
+    }
+
 
 }

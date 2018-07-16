@@ -271,7 +271,9 @@ void CLoginDlg::OnRemember()
 	}
 	else
 	{
+		m_Auto.SetCheck(0);
 		::WritePrivateProfileString(_T("Account"), _T("Remember"), _T("0"), _T("./Setting.ini"));
+		::WritePrivateProfileString(_T("Account"), _T("Auto"), _T("0"), _T("./Setting.ini"));
 	}
 }
 

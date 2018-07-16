@@ -6,6 +6,7 @@
 #include "MainDlg.h"
 
 #pragma comment(lib, "skin/SkinPPWTL.lib")
+#pragma comment(lib, "version.lib")
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -258,6 +259,7 @@ void CMainApp::OnHelp()
 }
 
 
+// 中文转换
 CString CMainApp::Convert(string Source)
 {
 	//解决中文转码问题
@@ -276,6 +278,52 @@ CString CMainApp::Convert(string Source)
 
 	CString Result(outName);
 	return  Result;
+}
+
+
+// 得到程序版本号
+CString CMainApp::GetApplicationVersion()
+{
+	TCHAR szFullPath[MAX_PATH];
+	DWORD dwVerInfoSize = 0;
+	DWORD dwVerHnd;
+	VS_FIXEDFILEINFO * pFileInfo;
+
+	GetModuleFileName(NULL, szFullPath, sizeof(szFullPath));
+	dwVerInfoSize = GetFileVersionInfoSize(szFullPath, &dwVerHnd);
+	if (dwVerInfoSize)
+	{
+		// If we were able to get the information, process it:
+		HANDLE  hMem;
+		LPVOID  lpvMem;
+		unsigned int uInfoSize = 0;
+
+		hMem = GlobalAlloc(GMEM_MOVEABLE, dwVerInfoSize);
+		lpvMem = GlobalLock(hMem);
+		GetFileVersionInfo(szFullPath, dwVerHnd, dwVerInfoSize, lpvMem);
+
+		::VerQueryValue(lpvMem, (LPTSTR)_T("\\"), (void**)&pFileInfo, &uInfoSize);
+
+		int ret = GetLastError();
+		WORD m_nProdVersion[4];
+
+		// Product version from the FILEVERSION of the version info resource 
+		m_nProdVersion[0] = HIWORD(pFileInfo->dwProductVersionMS);
+		m_nProdVersion[1] = LOWORD(pFileInfo->dwProductVersionMS);
+		m_nProdVersion[2] = HIWORD(pFileInfo->dwProductVersionLS);
+		m_nProdVersion[3] = LOWORD(pFileInfo->dwProductVersionLS);
+
+		CString strVersion;
+		strVersion.Format(_T("v%d.%d.%d.%d"), m_nProdVersion[0],
+			m_nProdVersion[1], m_nProdVersion[2], m_nProdVersion[3]);
+
+		GlobalUnlock(hMem);
+		GlobalFree(hMem);
+
+		return strVersion;
+	}
+
+	return _T("");
 }
 
 

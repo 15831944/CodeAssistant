@@ -116,7 +116,7 @@ BOOL CSearchDlg::OnInitDialog()
 			else
 			{
 				CString Name = Finder.GetFileName();
-				m_ComboBox.AddString(Name.Left(Name.GetLength() - 4));
+				m_ComboBox.AddString(Name.Left(Name.GetLength() - 5));
 			}
 		}
 	}

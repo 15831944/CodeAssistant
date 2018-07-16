@@ -284,29 +284,39 @@ void CProjectDlg::Refresh()
 
 
 void CProjectDlg::CopyDirectory(CString source, CString target)  
-{  
-    CreateDirectory(target,NULL); //创建目标文件夹  
-    //AfxMessageBox("创建文件夹"+target);  
-    CFileFind finder;  
-    CString path;  
-    path.Format(_T("%s/*.*"),source);  
-    //AfxMessageBox(path);  
-    BOOL bWorking =finder.FindFile(path);  
+{
+    CreateDirectory(target,NULL); //创建目标文件夹
+    //AfxMessageBox("创建文件夹"+target);
+    CFileFind finder;
+    CString path;
+    path.Format(_T("%s/*.*"),source);
+    //AfxMessageBox(path);
+    BOOL bWorking =finder.FindFile(path);
     while(bWorking)
-    {  
-        bWorking = finder.FindNextFile();  
-        //AfxMessageBox(finder.GetFileName());  
-        if(finder.IsDirectory() && !finder.IsDots())//是文件夹 而且 名称不含 . 或 ..  
-        { 
-            //递归创建文件夹+"/"+finder.GetFileName()
-            CopyDirectory(finder.GetFilePath(),target+"/"+finder.GetFileName());   
-        }  
-        else//是文件 则直接复制 
-        {  
-            //AfxMessageBox("复制文件"+finder.GetFilePath());//+finder.GetFileName()  
-            CopyFile(finder.GetFilePath(),target+"/"+finder.GetFileName(),FALSE);  
-        }  
-    }  
+    {
+        bWorking = finder.FindNextFile();
+        //AfxMessageBox(finder.GetFileName());
+        if(finder.IsDirectory() && !finder.IsDots())//是文件夹 而且 名称不含 . 或 ..
+		{
+			// 无限递归bug打破
+			char szAppPath[MAX_PATH];
+			GetModuleFileName(NULL, szAppPath, MAX_PATH);
+			(strrchr(szAppPath, '\\'))[0] = 0;
+			if(finder.GetFilePath().Replace(szAppPath, _T("")))
+			{
+				AfxMessageBox(_T("不能将程序自身添加进项目管理!"));
+				break;
+			}
+
+			//递归创建文件夹+"/"+finder.GetFileName()
+			CopyDirectory(finder.GetFilePath(),target+"/"+finder.GetFileName());
+		}
+        else//是文件 则直接复制
+        {
+            //AfxMessageBox("复制文件"+finder.GetFilePath());//+finder.GetFileName()
+            CopyFile(finder.GetFilePath(),target+"/"+finder.GetFileName(),FALSE);
+        }
+    }
 }
 
 
@@ -395,6 +405,17 @@ void CProjectDlg::OnOK()
 			AfxMessageBox(_T("项目路径不能带单引号!"));
 			return;
 		}
+
+		// 无限递归bug打破
+		char szAppPath[MAX_PATH];
+		GetModuleFileName(NULL, szAppPath, MAX_PATH);
+		(strrchr(szAppPath, '\\'))[0] = 0;
+		if(dlg.m_Path.Replace(szAppPath, _T("")))
+		{
+			AfxMessageBox(_T("不能将程序自身添加进项目管理!"));
+			return;
+		}
+		
 
 		// 判断数据表中是否存在数据
 		if (!theApp.m_Sql.CheckData(_T("项目管理"), 1, _T("Path = '") + dlg.m_Path + _T("' and Type = 'Local'")))

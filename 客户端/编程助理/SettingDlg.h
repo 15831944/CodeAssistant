@@ -31,4 +31,6 @@ public:
 	afx_msg void OnOK();
 	afx_msg void OnCancel();
 	afx_msg void OnLogin();
+	afx_msg void OnSynchronize();
+	afx_msg void OnPassword();
 };

@@ -17,7 +17,7 @@ public:
 	CMultiSelTriCheckTreeCtrl m_Server;
 
 	// 代码标识&树控件选择对象是否是文件
-	BOOL IsCode, IsFile;
+	BOOL IsCode, IsFile, IsAutoSynchronize;
 
 	// post 参数类型
 	int Type;
@@ -28,6 +28,7 @@ public:
 	void GetServerInfo();
 	void Split(CString source, CString divKey, CStringArray &dest);
 	void GetTreeData(CTreeCtrl * pTreeCtrl, HTREEITEM hitem, BOOL IsCheck);
+	void OnAutoSynchronize();
 
 	// 工作者线程
 	static UINT Operate(LPVOID pParam);

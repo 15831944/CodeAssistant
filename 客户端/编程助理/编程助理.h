@@ -39,6 +39,9 @@ public:
 	// 中文转换
 	CString Convert(string Source);
 
+	// 得到程序版本号
+	CString GetApplicationVersion();
+
 	// 使用帮助
 	void OnHelp();
 

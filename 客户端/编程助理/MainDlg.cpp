@@ -10,7 +10,10 @@
 #include "EditDlg.h"
 #include "LoginDlg.h"
 #include "ProjectDlg.h"
+#include "TransmissionDlg.h"
+#include "SynchronizeDlg.h"
 
+#include "lzma/LzmaLib.h"
 
 #define  VMPBEGIN \
     __asm _emit 0xEB \
@@ -63,8 +66,6 @@ CMainDlg::CMainDlg(CWnd* pParent /*=NULL*/)
 	// 工作线程初始化
 	Type = 0;
 	m_hOperate = NULL;
-
-	IsChange = false;
 }
 
 
@@ -117,6 +118,10 @@ BEGIN_MESSAGE_MAP(CMainDlg, CDialogEx)
 	
 	ON_EN_SETFOCUS(IDC_CODE_RICHEDIT, &CMainDlg::OnSetfocusCodeRichedit)
 	ON_EN_KILLFOCUS(IDC_CODE_RICHEDIT, &CMainDlg::OnKillfocusCodeRichedit)
+
+	ON_COMMAND(100, &CMainDlg::Complete)
+	ON_COMMAND(101, &CMainDlg::OnError)
+	ON_COMMAND(102, &CMainDlg::OnCancel)
 END_MESSAGE_MAP()
 
 
@@ -217,11 +222,23 @@ BOOL CMainDlg::OnInitDialog()
 	if(IsNew)
 	{
 		// 显示用户使用说明
-		m_Edit.StreamInFromResource(_T("使用说明.rtf"), _T("SF_RTF"));
+		if (m_hOperate == NULL)
+		{
+			Type = 2;
+			m_hOperate = AfxBeginThread(Operate, this);
+			CloseHandle(m_hOperate->m_hThread);
+		}
 	}
 
 	// 设置对话框
 	m_Setting->Create(IDD_SETTING_DIALOG, this);
+
+	// 检测更新
+	SetWindowText(_T("紫影龙编程助理 ") + theApp.GetApplicationVersion());
+	if(GetPrivateProfileInt(_T("Setting"), _T("Update"),1, _T("./Setting.ini")) == 1)
+	{
+		AfxBeginThread(UpDate, this);
+	}
 
 	// 添加文件到目标
 	if (m_hOperate == NULL)
@@ -343,8 +360,8 @@ BOOL CMainDlg::PreTranslateMessage(MSG* pMsg)
 			return true;
 		}
 
-		// Ctrl + W (编辑方法)
-		if( (nKeyCode == _T('W') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
+		// Ctrl + E (编辑方法)
+		if( (nKeyCode == _T('E') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
 		{
 			OnEditFunction();
 			return true;
@@ -374,12 +391,13 @@ BOOL CMainDlg::PreTranslateMessage(MSG* pMsg)
 				CString Name = m_List.GetItemText(m_List.GetNextItem(-1, LVIS_SELECTED), 0);
 				if (!Name.IsEmpty() && m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
 				{
-					CString Class, Type;
-					m_Class.GetWindowText(Class);
-					m_Type.GetWindowText(Type);
-					CString FilePath = _T("Code\\") + Class + _T("\\") + Type + _T("\\");
-
-					ShellExecute(NULL, _T("open"), FilePath + Name + _T(".rtf"), NULL, NULL, SW_SHOWNORMAL);
+					// 使用写字板打开
+					if (m_hOperate == NULL)
+					{
+						Type = 8;
+						m_hOperate = AfxBeginThread(Operate, this);
+						CloseHandle(m_hOperate->m_hThread);
+					}
 
 					// 屏蔽回车消息
 					return true;
@@ -461,360 +479,495 @@ UINT CMainDlg::Operate(LPVOID pParam)
 	// 窗口指针
 	CMainDlg * pWnd = ((CMainDlg*)pParam);
 
-	switch(pWnd->Type)
+	// 异常捕获
+	try
 	{
-	case 0:
+		switch(pWnd->Type)
 		{
-			// 初始化
-			CString FilePath = _T("Code");
-
-			// Class
-			CFileFind Finder;
-			BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
-			while (IsFind)
+		case 0:
 			{
-				IsFind = Finder.FindNextFile();
+				// 初始化
+				CString FilePath = _T("Code");
 
-				if (Finder.IsDots())
-					continue;
-				if (Finder.IsDirectory())
-					pWnd->m_Class.AddString(Finder.GetFileName());
-			}
-
-			pWnd->m_Class.SetCurSel(0);
-
-			// Type
-			CString Class, Type;
-			pWnd->m_Class.GetWindowText(Class);
-			FilePath = _T("Code\\") + Class;
-
-			IsFind = Finder.FindFile(FilePath + _T("./*.*"));
-			while (IsFind)
-			{
-				IsFind = Finder.FindNextFile();
-
-				if (Finder.IsDots())
-					continue;
-				if (Finder.IsDirectory())
-					pWnd->m_Type.AddString(Finder.GetFileName());
-			}
-
-			pWnd->m_Type.SetCurSel(0);
-
-
-			// Code
-			pWnd->m_Class.GetWindowText(Class);
-			pWnd->m_Type.GetWindowText(Type);
-			FilePath = _T("Code\\") + Class + _T("\\") + Type;
-
-			IsFind = Finder.FindFile(FilePath + _T("./*.*"));
-			while (IsFind)
-			{
-				IsFind = Finder.FindNextFile();
-
-				if (Finder.IsDots())
-					continue;
-				if (Finder.IsDirectory())
-					continue;
-				else
+				// Class
+				CFileFind Finder;
+				BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+				while (IsFind)
 				{
-					CString Name = Finder.GetFileName();
-					pWnd->m_List.AddItem(Name.Left(Name.GetLength() - 4));
+					IsFind = Finder.FindNextFile();
+
+					if (Finder.IsDots())
+						continue;
+					if (Finder.IsDirectory())
+						pWnd->m_Class.AddString(Finder.GetFileName());
 				}
-			}
 
-			// 自动打开
-			if( GetPrivateProfileInt(_T("Setting"), _T("Open"), 0, _T("./Setting.ini")) == 1)
-			{
-				// 读取最后关闭文件
-				CString Class, Type, Name;
+				pWnd->m_Class.SetCurSel(0);
 
-				::GetPrivateProfileString(_T("File"), _T("Class"), _T(""), Class.GetBuffer(MAX_PATH), MAX_PATH, _T("./Setting.ini"));
-				::GetPrivateProfileString(_T("File"), _T("Type"),  _T(""), Type.GetBuffer(MAX_PATH),  MAX_PATH, _T("./Setting.ini"));
-				::GetPrivateProfileString(_T("File"), _T("Name"),  _T(""), Name.GetBuffer(MAX_PATH),  MAX_PATH, _T("./Setting.ini"));
+				// Type
+				CString Class, Type;
+				pWnd->m_Class.GetWindowText(Class);
+				FilePath = _T("Code\\") + Class;
 
-				Class.ReleaseBuffer();
-				Type.ReleaseBuffer();
-				Name.ReleaseBuffer();
-
-				// 自动打开文件
-				int nIndex = pWnd->m_Class.FindStringExact(0, Class);
-				if(nIndex != CB_ERR)
+				IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+				while (IsFind)
 				{
-					pWnd->m_Class.SetCurSel(nIndex);
+					IsFind = Finder.FindNextFile();
 
-					// 清空ComboBox
-					pWnd->m_Type.ResetContent();
+					if (Finder.IsDots())
+						continue;
+					if (Finder.IsDirectory())
+						pWnd->m_Type.AddString(Finder.GetFileName());
+				}
 
-					CString Class;
-					pWnd->m_Class.GetWindowText(Class);
-					CString FilePath = _T("Code\\") + Class;
+				pWnd->m_Type.SetCurSel(0);
 
-					CFileFind Finder;
-					BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
-					while (IsFind)
+
+				// Code
+				pWnd->m_Class.GetWindowText(Class);
+				pWnd->m_Type.GetWindowText(Type);
+				FilePath = _T("Code\\") + Class + _T("\\") + Type;
+
+				IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+				while (IsFind)
+				{
+					IsFind = Finder.FindNextFile();
+
+					if (Finder.IsDots())
+						continue;
+					if (Finder.IsDirectory())
+						continue;
+					else
 					{
-						IsFind = Finder.FindNextFile();
+						CString Name = Finder.GetFileName();
+						pWnd->m_List.AddItem(Name.Left(Name.GetLength() - 5));
+					}
+				}
 
-						if (Finder.IsDots())
-							continue;
-						if (Finder.IsDirectory())
-							pWnd->m_Type.AddString(Finder.GetFileName());
+				// 自动打开
+				if( GetPrivateProfileInt(_T("Setting"), _T("Open"), 0, _T("./Setting.ini")) == 1)
+				{
+					// 读取最后关闭文件
+					CString Class, Type, Name;
+
+					::GetPrivateProfileString(_T("File"), _T("Class"), _T(""), Class.GetBuffer(MAX_PATH), MAX_PATH, _T("./Setting.ini"));
+					::GetPrivateProfileString(_T("File"), _T("Type"),  _T(""), Type.GetBuffer(MAX_PATH),  MAX_PATH, _T("./Setting.ini"));
+					::GetPrivateProfileString(_T("File"), _T("Name"),  _T(""), Name.GetBuffer(MAX_PATH),  MAX_PATH, _T("./Setting.ini"));
+
+					Class.ReleaseBuffer();
+					Type.ReleaseBuffer();
+					Name.ReleaseBuffer();
+
+					// 自动打开文件
+					int nIndex = pWnd->m_Class.FindStringExact(0, Class);
+					if(nIndex != CB_ERR)
+					{
+						pWnd->m_Class.SetCurSel(nIndex);
+
+						// 清空ComboBox
+						pWnd->m_Type.ResetContent();
+
+						CString Class;
+						pWnd->m_Class.GetWindowText(Class);
+						CString FilePath = _T("Code\\") + Class;
+
+						CFileFind Finder;
+						BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+						while (IsFind)
+						{
+							IsFind = Finder.FindNextFile();
+
+							if (Finder.IsDots())
+								continue;
+							if (Finder.IsDirectory())
+								pWnd->m_Type.AddString(Finder.GetFileName());
+						}
+
+						// 设置ComboBox
+						pWnd->m_Type.SetCurSel(0);
+					}
+					else
+					{
+						AfxMessageBox(_T("找不到") + Class + _T("类型"));
 					}
 
-					// 设置ComboBox
-					pWnd->m_Type.SetCurSel(0);
+					nIndex = pWnd->m_Type.FindStringExact(0, Type);
+					if(nIndex != CB_ERR)
+					{
+						pWnd->m_Type.SetCurSel(nIndex);
+						// 清空编辑框
+						pWnd->m_Edit.SetWindowText(_T(""));
+
+						// 清空列表
+						pWnd->m_List.DeleteAllItems();
+
+						CString Class, Type;
+						pWnd->m_Class.GetWindowText(Class);
+						pWnd->m_Type.GetWindowText(Type);
+						CString FilePath = _T("Code\\") + Class + _T("\\") + Type;
+
+						CFileFind Finder;
+						BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+						while (IsFind)
+						{
+							IsFind = Finder.FindNextFile();
+
+							if (Finder.IsDots())
+								continue;
+							if (Finder.IsDirectory())
+								continue;
+							else
+							{
+								CString Name = Finder.GetFileName();
+								pWnd->m_List.AddItem(Name.Left(Name.GetLength() - 5));
+							}
+						}
+					}
+					else
+					{
+						AfxMessageBox(_T("找不到") + Type + _T("类别"));
+					}
+
+					int Count = pWnd->m_List.GetItemCount();
+					for(int i=0; i<Count; i++)
+					{
+						CString Function = pWnd->m_List.GetItemText(i, 0);
+
+						if(Function == Name)
+						{
+							//设置高亮显示  
+							pWnd->m_List.SetFocus();//设置焦点  
+							pWnd->m_List.SetItemState(i, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);//设置状态  
+							pWnd->m_List.EnsureVisible(i, FALSE);//设置当前视图可见
+							goto read;
+							//break;
+						}
+					}
 				}
-				else
+			}break;
+
+		case 1:
+			{
+read:
+				int i = pWnd->m_List.GetNextItem(-1, LVIS_SELECTED);
+				//设置高亮显示  
+				pWnd->m_List.SetFocus();//设置焦点  
+				pWnd->m_List.SetItemState( i, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);//设置状态  
+				pWnd->m_List.EnsureVisible(i, FALSE);//设置当前视图可见 
+
+				CString Name = pWnd->m_List.GetItemText(i, 0);
+				if (!Name.IsEmpty() && i != -1)
 				{
-					AfxMessageBox(_T("找不到") + Class + _T("类型"));
-				}
-
-				nIndex = pWnd->m_Type.FindStringExact(0, Type);
-				if(nIndex != CB_ERR)
-				{
-					pWnd->m_Type.SetCurSel(nIndex);
-					// 清空编辑框
-					pWnd->m_Edit.SetWindowText(_T(""));
-
-					// 清空列表
-					pWnd->m_List.DeleteAllItems();
-
 					CString Class, Type;
 					pWnd->m_Class.GetWindowText(Class);
 					pWnd->m_Type.GetWindowText(Type);
-					CString FilePath = _T("Code\\") + Class + _T("\\") + Type;
+					CString FilePath = _T("Code\\") + Class + _T("\\") + Type + _T("\\");
 
-					CFileFind Finder;
-					BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
-					while (IsFind)
-					{
-						IsFind = Finder.FindNextFile();
+					// 显示消息提示
+					//AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
 
-						if (Finder.IsDots())
-							continue;
-						if (Finder.IsDirectory())
-							continue;
-						else
-						{
-							CString Name = Finder.GetFileName();
-							pWnd->m_List.AddItem(Name.Left(Name.GetLength() - 4));
-						}
-					}
+					// 解压缩编码
+					pWnd->Uncompress(FilePath + Name + _T(".code"), FilePath + Name + _T(".rtf"));
+
+					// 读取rtf文件
+					pWnd->m_Edit.StreamInFromResource(FilePath + Name + _T(".rtf"), _T("SF_RTF"));
+
+					// 删除原文件
+					DeleteFile(FilePath + Name + _T(".rtf"));
+
+					// 操作完成标志
+					//theApp.IsFinished = true;
+
+					pWnd->m_List.SetFocus();//设置焦点  
+					pWnd->m_List.SetItemState(i, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);//设置状态  
+					pWnd->m_List.EnsureVisible(i, FALSE);//设置当前视图可见
+
+					// 更改按钮文本
+					pWnd->GetDlgItem(IDC_NEW_BUTTON)->SetWindowText(_T("编辑方法"));
 				}
 				else
-				{
-					AfxMessageBox(_T("找不到") + Type + _T("类别"));
-				}
+					pWnd->GetDlgItem(IDC_NEW_BUTTON)->SetWindowText(_T("添加方法"));
+			}break;
 
-				int Count = pWnd->m_List.GetItemCount();
-				for(int i=0; i<Count; i++)
-				{
-					CString Function = pWnd->m_List.GetItemText(i, 0);
-
-					if(Function == Name)
-					{
-						//设置高亮显示  
-						pWnd->m_List.SetFocus();//设置焦点  
-						pWnd->m_List.SetItemState(i, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);//设置状态  
-						pWnd->m_List.EnsureVisible(i, FALSE);//设置当前视图可见
-						goto read;
-						//break;
-					}
-				}
-			}
-		}break;
-
-		case 1:
-		{
-			read:
-			//设置高亮显示  
-			pWnd->m_List.SetFocus();//设置焦点  
-			pWnd->m_List.SetItemState( pWnd->m_List.GetNextItem(-1, LVIS_SELECTED), LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);//设置状态  
-			pWnd->m_List.EnsureVisible(pWnd->m_List.GetNextItem(-1, LVIS_SELECTED), FALSE);//设置当前视图可见 
-
-			CString Name = pWnd->m_List.GetItemText(pWnd->m_List.GetNextItem(-1, LVIS_SELECTED), 0);
-			if (!Name.IsEmpty() && pWnd->m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
+		case 2:
 			{
+				// 解压缩编码
+				pWnd->Uncompress(_T("使用说明.code"), _T("使用说明.rtf"));
+
+				// 显示用户使用说明
+				pWnd->m_Edit.StreamInFromResource(_T("使用说明.rtf"), _T("SF_RTF"));
+
+				// 删除原文件
+				DeleteFile(_T("使用说明.rtf"));
+			}break;
+
+		case 3:
+			{
+				// 清空ComboBox
+				pWnd->m_Type.ResetContent();
+
+				CString Class;
+				pWnd->m_Class.GetWindowText(Class);
+				CString FilePath = _T("Code\\") + Class;
+
+				CFileFind Finder;
+				BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+				while (IsFind)
+				{
+					IsFind = Finder.FindNextFile();
+
+					if (Finder.IsDots())
+						continue;
+					if (Finder.IsDirectory())
+						pWnd->m_Type.AddString(Finder.GetFileName());
+				}
+
+				// 设置ComboBox
+				pWnd->m_Type.SetCurSel(0);
+			}break;
+
+		case 4:
+			{
+				// 清空编辑框
+				pWnd->m_Edit.SetWindowText(_T(""));
+
+				// 清空列表
+				pWnd->m_List.DeleteAllItems();
+
+				// 重置ComboBox
+				pWnd->m_Class.ResetContent();
+				pWnd->m_Type.ResetContent();
+
+				CString FilePath = _T("Code");
+				CFileFind Finder;
+				BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+				while (IsFind)
+				{
+					IsFind = Finder.FindNextFile();
+
+					if (Finder.IsDots())
+						continue;
+					if (Finder.IsDirectory())
+						pWnd->m_Class.AddString(Finder.GetFileName());
+				}
+
+				pWnd->m_Class.SetCurSel(0);
+			}break;
+
+		case 5:
+			{
+				// 清空编辑框
+				pWnd->m_Edit.SetWindowText(_T(""));
+
+				// 清空列表
+				pWnd->m_List.DeleteAllItems();
+
 				CString Class, Type;
 				pWnd->m_Class.GetWindowText(Class);
 				pWnd->m_Type.GetWindowText(Type);
-				CString FilePath = _T("Code\\") + Class + _T("\\") + Type + _T("\\");
+				CString FilePath = _T("Code\\") + Class + _T("\\") + Type;
 
-				pWnd->m_Edit.StreamInFromResource(FilePath + Name + _T(".rtf"), _T("SF_RTF"));
-				pWnd->GetDlgItem(IDC_NEW_BUTTON)->SetWindowText(_T("编辑方法"));
-			}
-			else
-				pWnd->GetDlgItem(IDC_NEW_BUTTON)->SetWindowText(_T("添加方法"));
-		}break;
-		
-		case 2:
-		{
-		    // 显示用户使用说明
-		    pWnd->m_Edit.StreamInFromResource(_T("使用说明.rtf"), _T("SF_RTF"));
-		}break;
-
-		case 3:
-		{
-			// 清空ComboBox
-			pWnd->m_Type.ResetContent();
-
-			CString Class;
-			pWnd->m_Class.GetWindowText(Class);
-			CString FilePath = _T("Code\\") + Class;
-
-			CFileFind Finder;
-			BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
-			while (IsFind)
-			{
-				IsFind = Finder.FindNextFile();
-
-				if (Finder.IsDots())
-					continue;
-				if (Finder.IsDirectory())
-					pWnd->m_Type.AddString(Finder.GetFileName());
-			}
-
-			// 设置ComboBox
-			pWnd->m_Type.SetCurSel(0);
-		}break;
-
-		case 4:
-		{
-			// 清空编辑框
-			pWnd->m_Edit.SetWindowText(_T(""));
-
-			// 清空列表
-			pWnd->m_List.DeleteAllItems();
-
-			// 重置ComboBox
-			pWnd->m_Class.ResetContent();
-			pWnd->m_Type.ResetContent();
-
-			CString FilePath = _T("Code");
-			CFileFind Finder;
-			BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
-			while (IsFind)
-			{
-				IsFind = Finder.FindNextFile();
-
-				if (Finder.IsDots())
-					continue;
-				if (Finder.IsDirectory())
-					pWnd->m_Class.AddString(Finder.GetFileName());
-			}
-
-			pWnd->m_Class.SetCurSel(0);
-		}break;
-
-		case 5:
-		{
-			// 清空编辑框
-			pWnd->m_Edit.SetWindowText(_T(""));
-
-			// 清空列表
-			pWnd->m_List.DeleteAllItems();
-
-			CString Class, Type;
-			pWnd->m_Class.GetWindowText(Class);
-			pWnd->m_Type.GetWindowText(Type);
-			CString FilePath = _T("Code\\") + Class + _T("\\") + Type;
-
-			CFileFind Finder;
-			BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
-			while (IsFind)
-			{
-				IsFind = Finder.FindNextFile();
-
-				if (Finder.IsDots())
-					continue;
-				if (Finder.IsDirectory())
-					continue;
-				else
+				CFileFind Finder;
+				BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+				while (IsFind)
 				{
-					CString Name = Finder.GetFileName();
-					pWnd->m_List.AddItem(Name.Left(Name.GetLength() - 4));
-				}
-			}
-		}break;
+					IsFind = Finder.FindNextFile();
 
-		case 6:
-		{
-			// 清空编辑框
-			pWnd->m_Edit.SetWindowText(_T(""));
-
-			// 清空列表
-			pWnd->m_List.DeleteAllItems();
-
-			// 重置ComboBox
-			pWnd->m_Type.ResetContent();
-
-			CString Class, Type;
-			pWnd->m_Class.GetWindowText(Class);
-			CString FilePath = _T("Code\\") + Class;
-
-			CFileFind Finder;
-			BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
-			while (IsFind)
-			{
-				IsFind = Finder.FindNextFile();
-
-				if (Finder.IsDots())
-					continue;
-				if (Finder.IsDirectory())
-					pWnd->m_Type.AddString(Finder.GetFileName());
-			}
-
-			pWnd->m_Type.SetCurSel(0);
-		}break;
-
-		case 7:
-		{
-			// 若设置了自动保存
-			if ( GetPrivateProfileInt(_T("Setting"), _T("Save"), 0, _T("./Setting.ini")) == 1)
-			{
-				CString Path = pWnd->m_List.GetItemText(pWnd->m_List.GetNextItem(-1, LVIS_SELECTED), 0);
-				CString Class, Type, Text;
-				pWnd->m_Class.GetWindowText(Class);
-				pWnd->m_Type.GetWindowText(Type);
-				pWnd->m_Edit.GetWindowText(Text);
-
-				// 如果分类信息不完整
-				if(Class.IsEmpty() || Type.IsEmpty())
-				{
-					return false;
-				}
-				else
-				{
-					// 已有源码
-					if(!Path.IsEmpty() && !Text.IsEmpty() && pWnd->m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
+					if (Finder.IsDots())
+						continue;
+					if (Finder.IsDirectory())
+						continue;
+					else
 					{
-						// 目录检测
-						DWORD DirPath = GetFileAttributes(_T("Code\\") + Class);
-						if (DirPath == 0xFFFFFFFF)     //文件夹不存在
-						{
-							CreateDirectory(_T("Code\\") + Class, NULL);
-						}
-
-						DirPath = GetFileAttributes(_T("Code\\") + Class + _T("\\") + Type);
-						if (DirPath == 0xFFFFFFFF)     //文件夹不存在
-						{
-							CreateDirectory(_T("Code\\") + Class + _T("\\") + Type, NULL);
-						}
-
-						// 自动保存
-						CString File = _T("Code\\") + Class + _T("\\") + Type + _T("\\");
-						pWnd->m_Edit.StreamOutToFile(File + Path + _T(".rtf"), _T("SF_RTF"));
+						CString Name = Finder.GetFileName();
+						pWnd->m_List.AddItem(Name.Left(Name.GetLength() - 5));
 					}
 				}
-			}
-		}break;
+			}break;
 
+		case 6:
+			{
+				// 清空编辑框
+				pWnd->m_Edit.SetWindowText(_T(""));
+
+				// 清空列表
+				pWnd->m_List.DeleteAllItems();
+
+				// 重置ComboBox
+				pWnd->m_Type.ResetContent();
+
+				CString Class, Type;
+				pWnd->m_Class.GetWindowText(Class);
+				CString FilePath = _T("Code\\") + Class;
+
+				CFileFind Finder;
+				BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+				while (IsFind)
+				{
+					IsFind = Finder.FindNextFile();
+
+					if (Finder.IsDots())
+						continue;
+					if (Finder.IsDirectory())
+						pWnd->m_Type.AddString(Finder.GetFileName());
+				}
+
+				pWnd->m_Type.SetCurSel(0);
+			}break;
+
+		case 7:
+			{
+				// 若设置了自动保存
+				if ( GetPrivateProfileInt(_T("Setting"), _T("Save"), 0, _T("./Setting.ini")) == 1)
+				{
+					CString Path = pWnd->m_List.GetItemText(pWnd->m_List.GetNextItem(-1, LVIS_SELECTED), 0);
+					CString Class, Type, Text;
+					pWnd->m_Class.GetWindowText(Class);
+					pWnd->m_Type.GetWindowText(Type);
+					pWnd->m_Edit.GetWindowText(Text);
+
+					// 如果分类信息不完整
+					if(Class.IsEmpty() || Type.IsEmpty())
+					{
+						return false;
+					}
+					else
+					{
+						// 已有源码
+						if(!Path.IsEmpty() && !Text.IsEmpty() && pWnd->m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
+						{
+							// 目录检测
+							DWORD DirPath = GetFileAttributes(_T("Code\\") + Class);
+							if (DirPath == 0xFFFFFFFF)     //文件夹不存在
+							{
+								CreateDirectory(_T("Code\\") + Class, NULL);
+							}
+
+							DirPath = GetFileAttributes(_T("Code\\") + Class + _T("\\") + Type);
+							if (DirPath == 0xFFFFFFFF)     //文件夹不存在
+							{
+								CreateDirectory(_T("Code\\") + Class + _T("\\") + Type, NULL);
+							}
+
+							// 自动保存
+							CString File = _T("Code\\") + Class + _T("\\") + Type + _T("\\");
+							pWnd->m_Edit.StreamOutToFile(File + Path + _T(".rtf"), _T("SF_RTF"));
+
+							// 压缩编码
+							pWnd->Compress(File + Path + _T(".rtf"), File + Path + _T(".code"));
+
+							// 删除原文件
+							DeleteFile(File + Path + _T(".rtf"));
+						}
+					}
+				}
+			}break;
+
+		case 8:
+			{
+				CString Name = pWnd->m_List.GetItemText(pWnd->m_List.GetNextItem(-1, LVIS_SELECTED), 0);
+				if (!Name.IsEmpty() && pWnd->m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
+				{
+					CString Class, Type;
+					pWnd->m_Class.GetWindowText(Class);
+					pWnd->m_Type.GetWindowText(Type);
+					CString FilePath = _T("Code\\") + Class + _T("\\") + Type + _T("\\");
+
+					// 解压缩编码
+					pWnd->Uncompress(FilePath + Name + _T(".code"), FilePath + Name + _T(".rtf"));
+
+					// 调用命令行 执行
+					//ShellExecute(NULL, NULL, _T("write.exe"), FilePath + Name + _T(".rtf"), NULL, SW_HIDE);
+
+					SHELLEXECUTEINFO ShExecInfo = {0};
+					ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+					ShExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+
+					ShExecInfo.lpFile       = _T("write.exe");
+					ShExecInfo.lpDirectory  = NULL;
+					ShExecInfo.lpParameters = FilePath + Name + _T(".rtf");
+
+					ShExecInfo.nShow = SW_SHOW;
+					ShellExecuteEx(&ShExecInfo);
+
+					// 最小化主窗口
+					//pWnd->ShowWindow(SW_MINIMIZE);
+
+					// 显示消息提示
+					AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
+
+					AfxGetApp()->BeginWaitCursor();
+					WaitForSingleObject(ShExecInfo.hProcess,INFINITE);
+					AfxGetApp()->EndWaitCursor();
+					
+					// 还原主窗口
+					//pWnd->ShowWindow(SW_RESTORE);
+
+					// 删除原文件
+					DeleteFile(FilePath + Name + _T(".rtf"));
+
+					// 操作完成标志
+					theApp.IsFinished = true;
+				}
+			}break;
+		}
+	}
+	catch(...)
+	{
+		AfxMessageBox(_T("发生了异常, 位于CMainDlg的Operate方法."));
 	}
 
 	// 对象置为空
 	pWnd->m_hOperate = NULL;
 	return TRUE;
+}
+
+
+// 检查更新
+UINT CMainDlg::UpDate(LPVOID pParam)
+{
+	// 窗口指针
+	CMainDlg * pWnd = ((CMainDlg*)pParam);
+	BOOL IsSuccess  = false;
+
+	// 获取服务器数据
+	try
+	{
+		CString RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/GetUpDataInfo"), 80, NULL, IsSuccess);
+		if (RecvData == _T("") || RecvData.IsEmpty() || !IsSuccess)
+		{
+			/*pWnd->Error = _T("无法连接到服务器, 请检查网络。");
+			pWnd->PostMessage(WM_COMMAND, 101);*/
+		}
+		else
+		{
+			if (IsSuccess)
+			{
+				if( RecvData.Replace(_T(";"), _T(";")) )
+				{
+					pWnd->UpDateInfo = RecvData;
+					pWnd->PostMessage(WM_COMMAND, 100);
+				}
+				else
+				{
+					/*pWnd->Error = _T("数据读取失败，请稍后再试。");
+					pWnd->PostMessage(WM_COMMAND, 101);*/
+				}
+			}
+			else
+			{
+				/*pWnd->Error = _T("无法连接到服务器, 请检查网络。");
+				pWnd->PostMessage(WM_COMMAND, 101);*/
+			}
+		}
+	}
+	catch (...)
+	{
+		pWnd->Error = _T("发生了异常，位于UpData的OnGetWebInfo方法。");
+		pWnd->PostMessage(WM_COMMAND, 101);
+	}
+
+	return true;
 }
 
 
@@ -893,6 +1046,181 @@ void CMainDlg::OnHelp()
 		m_hOperate = AfxBeginThread(Operate, this);
 		CloseHandle(m_hOperate->m_hThread);
 	}
+}
+
+
+void CMainDlg::Split(CString source, CString divKey, CStringArray &dest)
+{
+	dest.RemoveAll();
+	int pos = 0;
+	int pre_pos = 0;
+	while ( -1 != pos )
+	{
+		pre_pos = pos;
+		pos     = source.Find(divKey, (pos +1));
+
+		CString temp(source.Mid(pre_pos , (pos -pre_pos )));
+		temp.Replace(divKey, _T(""));
+		dest.Add(temp);
+	}
+}
+
+
+bool CMainDlg::Compress(const char* scrfilename,const char* desfilename)
+{
+	FILE *fin, *fout;
+	fopen_s(&fin, scrfilename, "rb");
+	if(fin == NULL)
+	{
+		printf("Open ScrFile ERR:%s\n",scrfilename);
+		return false;
+	}
+	fopen_s(&fout, desfilename, "wb");
+	if(fout == NULL)
+	{
+		printf("Open DesFile ERR:%s\n",desfilename);
+		fclose(fin);
+		return false;
+	}
+
+	fseek(fin,0,SEEK_END);
+	size_t saveinsize=ftell(fin);
+	fseek(fin,0,SEEK_SET);
+	size_t saveoutsize = saveinsize * (size_t)1.1 + 1026 * 16;
+	unsigned char* inbuff=(unsigned char*)malloc(saveinsize);
+	unsigned char* outbuff=(unsigned char*)malloc(saveoutsize);
+	unsigned char props[5]={0};
+	size_t propsSize=5;
+	size_t readlength=fread(inbuff,1,saveinsize,fin);
+	if(readlength!=saveinsize){
+		printf("read err\n");
+		fclose(fin);
+		fclose(fout);
+		return false;
+	}
+	int	res = LzmaCompress(outbuff,&saveoutsize,inbuff,saveinsize,
+			props,&propsSize,
+			5,
+			1 << 24,
+			3,
+			0,
+			2,
+			32,
+			1);
+	if(res!=0){
+		printf("LzmaCompressErr:%d\n",res);
+		fclose(fin);
+		fclose(fout);
+		return true;
+	}
+	int zero=0;
+	fwrite(props,1,propsSize,fout);
+	fwrite(&saveinsize,1,4,fout);
+	fwrite(&zero,1,4,fout);
+	fwrite(outbuff,1,saveoutsize,fout);
+	
+	fclose(fin);
+	fclose(fout);
+	return true;
+}
+
+
+bool CMainDlg::Uncompress(const char* scrfilename,const char* desfilename)
+{
+	FILE *fin, *fout;
+	fopen_s(&fin, scrfilename, "rb");
+	if(fin == NULL)
+	{
+		printf("Open ScrFile ERR:%s\n",scrfilename);
+		return false;
+	}
+	fopen_s(&fout, desfilename, "wb");
+	if(fout == NULL)
+	{
+		printf("Open DesFile ERR:%s\n",desfilename);
+		fclose(fin);
+		return false;
+	}
+
+	fseek(fin,0,SEEK_END);
+	size_t saveinsize = ftell(fin);
+	fseek(fin,0,SEEK_SET);
+	size_t saveoutsize = saveinsize * (size_t)1.1 + 1026 * 16;
+	unsigned char* inbuff=(unsigned char*)malloc(saveinsize);
+	unsigned char props[5]={0};
+	size_t propsSize=5;
+
+	fread(props,1,5,fin);
+	fread(&saveoutsize,1,4,fin);
+	fseek(fin,4,SEEK_CUR);
+	unsigned char* outbuff=(unsigned char*)malloc(saveoutsize);
+	size_t readlength=fread(inbuff,1,saveinsize-13,fin);
+	if(readlength!=(saveinsize-13)){
+		printf("read err\n");
+		fclose(fin);
+		fclose(fout);
+		return false;
+	}
+	int	res=LzmaUncompress(outbuff,&saveoutsize,inbuff,&readlength,
+			props,propsSize);
+	if(res!=0){
+		printf("LzmaUncompress:%d\n",res);
+		fclose(fin);
+		fclose(fout);
+		return true;
+	}
+	fwrite(outbuff,1,saveoutsize,fout);
+	fclose(fin);
+	fclose(fout);
+	return true;
+}
+
+
+void CMainDlg::Complete()
+{
+	CStringArray TextArray;
+	Split(UpDateInfo, _T(";"), TextArray);
+
+	CString Version  = TextArray.GetAt(0);
+	CString FileInfo = TextArray.GetAt(1);
+	CString TipText  = Version;
+
+	Version.Replace(_T("v"), _T(""));
+	Version.Replace(_T("."), _T(""));
+
+	CString OldVersion = theApp.GetApplicationVersion();
+	OldVersion.Replace(_T("v"), _T(""));
+	OldVersion.Replace(_T("."), _T(""));
+
+	// 比对
+	int old_version = atoi(OldVersion);
+	int new_version = atoi(Version);
+
+	if(new_version  > old_version)
+	{
+		TipText.Format(_T("新版本 %s 已发布, 是否需要更新?"), TipText);
+		if( MessageBox(TipText, _T("检测到更新"), MB_ICONQUESTION | MB_YESNO) == IDYES )
+		{
+			// 开始更新
+			CStringArray TargetList;
+			TargetList.Add(FileInfo);
+
+			CTransmissionDlg pDlg;
+			pDlg.TargetList = &TargetList;
+			pDlg.IsDownload = true;
+			pDlg.IsCode     = false;
+			pDlg.IsProject  = false;
+			pDlg.IsUpDate   = true;
+			pDlg.DoModal();
+		}
+	}
+}
+
+
+void CMainDlg::OnError()
+{
+	// 提示错误
+	AfxMessageBox(Error);
 }
 
 
@@ -1010,15 +1338,12 @@ void CMainDlg::OnDblclkCodeList(NMHDR *pNMHDR, LRESULT *pResult)
 
 	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
 
-	CString Name = m_List.GetItemText(m_List.GetNextItem(-1, LVIS_SELECTED), 0);
-	if (!Name.IsEmpty() && m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
+	// 使用写字板打开
+	if (m_hOperate == NULL)
 	{
-		CString Class, Type;
-		m_Class.GetWindowText(Class);
-		m_Type.GetWindowText(Type);
-		CString FilePath = _T("Code\\") + Class + _T("\\") + Type + _T("\\");
-
-		ShellExecute(NULL, _T("open"), FilePath + Name + _T(".rtf"), NULL, NULL, SW_SHOWNORMAL);
+		Type = 8;
+		m_hOperate = AfxBeginThread(Operate, this);
+		CloseHandle(m_hOperate->m_hThread);
 	}
 
 	VMPEND
@@ -1326,8 +1651,8 @@ void CMainDlg::OnEditFunction()
 
 		if(dlg.DoModal() == IDOK)
 		{
-			CString old_Path = _T("Code\\") + Class + _T("\\") + Type + _T("\\") + Function + _T(".rtf");
-			CString new_Path = _T("Code\\") + Class + _T("\\") + Type + _T("\\") + dlg.Type + _T(".rtf");
+			CString old_Path = _T("Code\\") + Class + _T("\\") + Type + _T("\\") + Function + _T(".code");
+			CString new_Path = _T("Code\\") + Class + _T("\\") + Type + _T("\\") + dlg.Type + _T(".code");
 
 			if(MoveFileEx(old_Path, new_Path, MOVEFILE_REPLACE_EXISTING))
 			{
@@ -1391,7 +1716,22 @@ void CMainDlg::OnOK()
 	CString File = _T("Code\\") + Class + _T("\\") + Type + _T("\\");
 	if(!Path.IsEmpty() && m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
 	{
-		m_Edit.StreamOutToFile(File + Path + _T(".rtf"), _T("SF_RTF"));
+		// 显示消息提示
+		//AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
+
+		CString TargetFile = File + Path;
+		m_Edit.StreamOutToFile(TargetFile + _T(".rtf"), _T("SF_RTF"));
+
+		// 压缩编码
+		Compress(TargetFile + _T(".rtf"), TargetFile + _T(".code"));
+
+		// 删除原文件
+		DeleteFile(TargetFile + _T(".rtf"));
+
+		// 操作完成标志
+		//theApp.IsFinished = true;
+
+		// 消息提示
 		MessageBox(_T("保存成功!"));
 
 		//设置高亮显示  
@@ -1405,12 +1745,27 @@ void CMainDlg::OnOK()
 		GetModuleFileName(NULL,exeFullPath,MAX_PATH);//得到程序模块名称，全路径
 		CString Path(exeFullPath), Name = Path.Right(Path.GetLength() - Path.ReverseFind('\\') - 1), Dir = Path.Left(Path.GetLength() - Name.GetLength()) + File;
 
-		CFileDialog FileDlg(TRUE, _T("rtf"), _T("方法名称"), OFN_NOCHANGEDIR | OFN_ENABLEHOOK | OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_ENABLESIZING, _T("方法文件(*.rtf)|*.rtf;||"), this);
+		CFileDialog FileDlg(TRUE, _T("rtf"), _T("方法名称"), OFN_NOCHANGEDIR | OFN_ENABLEHOOK | OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_ENABLESIZING, _T("方法文件(*.code)|*.rtf;||"), this);
 		FileDlg.m_ofn.lpstrInitialDir = Dir;
-		if(FileDlg.DoModal() == IDOK)
+		if(FileDlg.DoModal() != IDOK)
+			return;
+		else
 		{
+			// 显示消息提示
+			//AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
+
 			CString strFile = FileDlg.GetPathName(); //文件不存在就自动创建
 			m_Edit.StreamOutToFile(strFile, _T("SF_RTF"));
+
+			// 压缩编码
+			Compress(strFile, strFile.Left(strFile.GetLength() -4) + _T(".code"));
+
+			// 删除原文件
+			DeleteFile(strFile);
+
+			// 操作完成标志
+			//theApp.IsFinished = true;
+
 			MessageBox(_T("保存成功!"));
 
 			BOOL  isFind = FALSE;
@@ -1527,6 +1882,7 @@ void CMainDlg::OnNew()
 	}
 	else
 	{
+		// 编辑方法
 		OnEditFunction();
 	}
 }
@@ -1648,7 +2004,7 @@ void CMainDlg::OnRemove()
 					m_Class.GetWindowText(Class);
 					m_Type.GetWindowText(Type);
 
-					DeleteFile(_T("Code\\") + Class + _T("\\") + Type + _T("\\") + Path + _T(".rtf"));
+					DeleteFile(_T("Code\\") + Class + _T("\\") + Type + _T("\\") + Path + _T(".code"));
 
 					m_List.DeleteItem(m_List.GetNextItem(-1, LVIS_SELECTED));
 					m_Edit.SetWindowText(_T(""));
@@ -1679,7 +2035,7 @@ void CMainDlg::OnRemove()
 						m_Class.GetWindowText(Class);
 						m_Type.GetWindowText(Type);
 
-						DeleteFile(_T("Code\\") + Class + _T("\\") + Type + _T("\\") + Path + _T(".rtf"));
+						DeleteFile(_T("Code\\") + Class + _T("\\") + Type + _T("\\") + Path + _T(".code"));
 
 						m_List.DeleteItem(nItem);
 					}
@@ -1750,6 +2106,73 @@ void CMainDlg::OnCancel()
 			::WritePrivateProfileString(_T("File"), _T("Class"), Class, _T("./Setting.ini"));
 			::WritePrivateProfileString(_T("File"), _T("Type"),  Type,  _T("./Setting.ini"));
 			::WritePrivateProfileString(_T("File"), _T("Name"),  Name,  _T("./Setting.ini"));
+		}
+	}
+
+	// 是否自动同步
+	if( GetPrivateProfileInt(_T("Setting"), _T("Synchronize"), 0, _T("./Setting.ini")) == 1)
+	{
+		CString UserName, Password;
+		if (!theApp.m_Sql.SelectData(_T("用户账户"), UserName, 1, _T("Name Is Not Null")))
+		{
+			AfxMessageBox(_T("无法读取用户名!自动同步失败!"));
+		}
+
+		if (!theApp.m_Sql.SelectData(_T("用户账户"), Password, 2, _T("Password Is Not Null")))
+		{
+			AfxMessageBox(_T("无法读取用户密码!自动同步失败!"));
+		}
+
+		if(UserName.IsEmpty() || Password.IsEmpty())
+		{
+			AfxMessageBox(_T("没有进行过自动登陆!自动同步失败!"));
+			CDialogEx::OnCancel();
+			return;
+		}
+
+		try
+		{
+			CString Parameter;
+			Parameter.Format(_T("username=%s&password=%s"), UserName, Password);
+			BOOL IsSuccess = FALSE;
+
+			CString RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/login"), 80, Parameter, IsSuccess);
+			if (RecvData == _T("") || RecvData.IsEmpty() || !IsSuccess)
+			{
+				AfxMessageBox(_T("无法连接到服务器, 请检查网络。自动同步失败!"));
+				return;
+			}
+			else
+			{
+				if (IsSuccess)
+				{
+					if( RecvData == RecvData.SpanIncluding( _T("0123456789") ) )
+					{
+						CSynchronizeDlg * dlg = new CSynchronizeDlg;
+						dlg->UserId   = RecvData;
+						dlg->UserName = UserName;
+						dlg->IsAutoSynchronize=true;
+
+						dlg->Create(IDD_SYNCHRONIZE_DIALOG, this);
+						dlg->OnAutoSynchronize();
+
+						dlg->DestroyWindow();
+						delete dlg;
+					}
+					else
+					{
+						AfxMessageBox(_T("登录失败，用户名或密码错误。自动同步失败!"));
+					}
+				}
+				else
+				{
+					AfxMessageBox(_T("无法连接到服务器, 请检查网络。自动同步失败!"));
+				}
+			}
+		}
+		catch (...)
+		{
+			AfxMessageBox(_T("发生了异常，位于CMainDlg的OnCancel方法。"));
 		}
 	}
 
