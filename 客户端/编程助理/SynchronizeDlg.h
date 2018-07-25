@@ -29,14 +29,16 @@ public:
 	void Split(CString source, CString divKey, CStringArray &dest);
 	void GetTreeData(CTreeCtrl * pTreeCtrl, HTREEITEM hitem, BOOL IsCheck);
 	void OnAutoSynchronize();
+	void OnDelete();
+	void OnMessage();
 
 	// 工作者线程
-	static UINT Operate(LPVOID pParam);
-	CWinThread * m_hOperate;
+	static UINT Operate(LPVOID pParam), DeleteOperate(LPVOID pParam);
+	CWinThread * m_hOperate, * m_hDelete;
 
 	// 全局变量
-	CString Parameter, UserName, UserId, Error, ServerInfo, TreeData;
-	CStringArray TargetList;
+	CString Parameter, UserName, UserId, Error, ServerInfo, TreeData, OldTree, Message;
+	CStringArray TargetList, ModifyList;
 
 // 对话框数据
 	enum { IDD = IDD_SYNCHRONIZE_DIALOG };

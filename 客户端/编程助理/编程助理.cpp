@@ -64,8 +64,12 @@ CMainApp::CMainApp()
 	// 支持重新启动管理器
 	m_dwRestartManagerSupportFlags = AFX_RESTART_MANAGER_SUPPORT_RESTART;
 
+	// 成员变量初始化
 	DataBase_Name = _T("Data.zdb");
 	DataBase_Path = _T("Database");
+	CodePath      = _T("");
+
+	IsFinished = IsReadOnce = FALSE; 
 }
 
 
@@ -109,12 +113,43 @@ BOOL CMainApp::InitInstance()
 	// 例如修改为公司或组织名
 	// SetRegistryKey(_T("应用程序向导生成的本地应用程序"));
 
+	// 得到程序运行目录
+	CString CurDir = GetModuleDir();
+
+	// 获取命令行
+	CString CmdLine = AfxGetApp()->m_lpCmdLine;
+	if( CmdLine.Replace(_T("-Read "), _T("")) || CmdLine.Replace(_T("-read "), _T("")) )
+	{
+		// 读取code文件路径
+		CodePath = CmdLine;
+	}
+
+	// 读取后删除
+	else if( CmdLine.Replace(_T("-ReadOnce "), _T("")) || CmdLine.Replace(_T("-readonce "), _T("")) )
+	{
+		// 读取code文件路径
+		CodePath = CmdLine;
+		IsReadOnce = TRUE;
+	}
+
+	// 直接拖放文件
+	else if(CmdLine.Replace(_T("\""), _T("")) || CmdLine.Replace(_T(".code"), _T(".code")))
+	{
+		// 读取code文件路径
+		CodePath = CmdLine;
+	}
+
+	// 还原工作路径
+	SetCurrentDirectory(CurDir);
+
+	// 初始化数据库
 	if(!InitDataBase())
 	{
 		AfxMessageBox(_T("无法初始化数据库，请检查安全软件设置！"));
 		return false;
 	}
 
+	// 主对话框初始化
 	CMainDlg dlg;
 	m_pMainWnd = &dlg;
 	INT_PTR nResponse = dlg.DoModal();
@@ -327,6 +362,37 @@ CString CMainApp::GetApplicationVersion()
 }
 
 
+// 得到程序运行目录
+CString CMainApp::GetModuleDir()
+{
+	HMODULE module = GetModuleHandle(0);
+	char pFileName[MAX_PATH];
+	GetModuleFileName(module, pFileName, MAX_PATH);
+
+	CString csFullPath(pFileName);
+	int nPos = csFullPath.ReverseFind( _T('\\') );
+	if( nPos < 0 )
+		return CString("");
+	else
+		return csFullPath.Left( nPos );
+}
+
+
+// 获取工作路径
+CString CMainApp::GetWorkDir() 
+{  
+	char pFileName[MAX_PATH]; 
+	int nPos = GetCurrentDirectory( MAX_PATH, pFileName); 
+
+	CString csFullPath(pFileName);  
+	if( nPos < 0 ) 
+		return CString(""); 
+	else 
+		return csFullPath; 
+}
+
+
+//  退出应用程序
 int CMainApp::ExitInstance()
 {
 	// 卸载皮肤

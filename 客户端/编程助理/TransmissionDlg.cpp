@@ -6,8 +6,10 @@
 #include "TransmissionDlg.h"
 #include "afxdialogex.h"
 
+#include <assert.h>
 #include <afxinet.h> 
 #include "ProjectDlg.h"
+
 
 // 定义大小
 #define KB 1024
@@ -25,7 +27,7 @@ CTransmissionDlg::CTransmissionDlg(CWnd* pParent /*=NULL*/)
 	m_Thread= NULL;
 
 	Target  = 0;
-	IsDownload = IsCode = IsProject = IsUpDate = IsSynchronize = FALSE;
+	IsDownload = IsCode = IsProject = IsUpDate = IsSynchronize = ModifyTime = FALSE;
 }
 
 CTransmissionDlg::~CTransmissionDlg()
@@ -54,6 +56,7 @@ BEGIN_MESSAGE_MAP(CTransmissionDlg, CDialogEx)
 
 	ON_COMMAND(100, &CTransmissionDlg::Complete)
 	ON_COMMAND(101, &CTransmissionDlg::OnError)
+	ON_COMMAND(102, &CTransmissionDlg::OnCancel)
 END_MESSAGE_MAP()
 
 
@@ -96,8 +99,6 @@ BOOL CTransmissionDlg::OnInitDialog()
 
 BOOL CTransmissionDlg::PreTranslateMessage(MSG* pMsg)
 {
-	// TODO: 在此添加专用代码和/或调用基类
-
 	return CDialogEx::PreTranslateMessage(pMsg);
 }
 
@@ -140,6 +141,226 @@ void CTransmissionDlg::Split(CString source, CString divKey, CStringArray &dest)
 		temp.Replace(divKey, _T(""));
 		dest.Add(temp);
 	}
+}
+
+
+unsigned char ToHex(unsigned char x) 
+{ 
+    return  x > 9 ? x + 55 : x + 48; 
+}
+ 
+
+unsigned char FromHex(unsigned char x)
+{
+    unsigned char y;
+    if (x >= 'A' && x <= 'Z') y = x - 'A' + 10;
+    else if (x >= 'a' && x <= 'z') y = x - 'a' + 10;
+    else if (x >= '0' && x <= '9') y = x - '0';
+    else assert(0);
+    return y;
+}
+ 
+
+std::string UrlEncode(const std::string& str)
+{
+    std::string strTemp = "";
+    size_t length = str.length();
+    for (size_t i = 0; i < length; i++)
+    {
+        if (isalnum((unsigned char)str[i]) || 
+            (str[i] == '-') ||
+            (str[i] == '_') || 
+            (str[i] == '.') || 
+            (str[i] == '~'))
+            strTemp += str[i];
+        else if (str[i] == ' ')
+            strTemp += "+";
+        else
+        {
+            strTemp += '%';
+            strTemp += ToHex((unsigned char)str[i] >> 4);
+            strTemp += ToHex((unsigned char)str[i] % 16);
+        }
+    }
+    return strTemp;
+}
+ 
+
+std::string UrlDecode(const std::string& str)
+{
+    std::string strTemp = "";
+    size_t length = str.length();
+    for (size_t i = 0; i < length; i++)
+    {
+        if (str[i] == '+') strTemp += ' ';
+        else if (str[i] == '%')
+        {
+            assert(i + 2 < length);
+            unsigned char high = FromHex((unsigned char)str[++i]);
+            unsigned char low = FromHex((unsigned char)str[++i]);
+            strTemp += high*16 + low;
+        }
+        else strTemp += str[i];
+    }
+    return strTemp;
+}
+
+
+CString urlEncode(CString s)
+{
+	int len = s.GetLength();
+	char *out = new char[len*9+1];
+	memset(out , 0 , len*9+1);
+	int i , j;
+	int ch = 0 ;
+
+	static char  myhex[0xFF+1][4];  //add by zhouzd 2008-10-06
+	static bool isinital = false;
+
+	if ( !isinital )
+	{
+		for ( i = 0 ; i <= 0xFF ; ++i )
+		{
+			myhex[i][0] = '%';
+			sprintf_s( myhex[i]+1, strlen(myhex[i]+1), "%02X" , i );
+		}
+		isinital = true;
+	}
+
+	for (i = 0 , j = 0; i < len ; ++i )
+	{
+		ch = s.GetAt(i);
+
+		//printf("%c\n" , s.GetAt(i) );
+
+		if ('A' <= ch && ch <= 'Z')         // 'A'..'Z'
+		{
+			out[j++] = ch;
+		}
+		else if ('a' <= ch && ch <= 'z')    // 'a'..'z'
+		{
+			out[j++] = ch;
+		}
+		else if ('0' <= ch && ch <= '9')    // '0'..'9'
+		{
+			out[j++] = ch;
+		}
+		else if (ch == ' ')           // space
+		{
+			out[j++] = '+';
+		}
+		else if (ch == '-' || ch == '_'        // 不需要转化
+			|| ch == '.' || ch == '!'
+			|| ch == '~' || ch == '*'
+			|| ch == '\'' || ch == '('
+			|| ch == ')')
+		{
+			out[j++] = ch;
+		}
+		else if (ch <= 0x007f)     // ASCII控制字符
+		{    
+			strcat_s(out, strlen(out), myhex[ch]);
+			j += 3;
+		}
+		else if (ch <= 0x07FF)         // 非ASCII <= 0x7FF
+		{
+			strcat_s(out, strlen(out), myhex[0xc0 | (ch >> 6)]);
+			strcat_s(out, strlen(out), myhex[0x80 | (ch & 0x3F)]);
+			j += 6;
+		}
+		else                       // 0x7FF < ch <= 0xFFFF
+		{
+			strcat_s(out, strlen(out), myhex[0xe0 | (ch >> 12)]);
+			strcat_s(out, strlen(out), myhex[0x80 | ((ch >> 6) & 0x3F)]);
+			strcat_s(out, strlen(out), myhex[0x80 | (ch & 0x3F)]);
+			j += 9;
+		}
+	}
+	out[j] = '\0';
+	USES_CONVERSION;
+	CString result = (CStringA)A2W(out);
+
+	delete out;
+	out = NULL;
+
+	return result;
+}
+
+
+// 获取URL重定向后的文件名,如果没有重定向,也返回下载文件名
+CString GetFileNameFromRedirectUrl(CString strUrl)
+{
+	CInternetSession iSession; 
+	CStdioFile* pFileDown = NULL; 
+	CString sFileName; 
+ 
+	pFileDown = iSession.OpenURL(strUrl, 1, INTERNET_FLAG_TRANSFER_BINARY); 
+ 
+	CHttpFile* pHttpFile = (CHttpFile *)pFileDown; 
+	HINTERNET hHttpFile = HINTERNET(*pHttpFile); 
+ 
+	//获得重定向文件名 
+	//BOOL bResult = pHttpFile->QueryOption(INTERNET_OPTION_URL, sFileName);
+	DWORD File   = (DWORD)(LPCTSTR)sFileName;
+	BOOL bResult = pHttpFile->QueryOption(INTERNET_OPTION_URL, File);
+	int flag     = sFileName.ReverseFind('/');
+	CString strFileName = sFileName.Mid(flag + 1);
+ 
+	return strFileName;
+}
+
+
+int CTransmissionDlg::GetFileSize(CString Path)
+{
+	CFileStatus Status;
+
+	if(CFile::GetStatus(Path, Status))
+	{
+		int nSize = (int)Status.m_size;
+		return nSize;
+	}
+
+	return 0;
+}
+
+
+time_t CTransmissionDlg::FormatTime(char * szTime)  
+{  
+    struct tm tm1;  
+    time_t time1;  
+  
+	// 格式化
+    sscanf_s(szTime, "%4d%2d%2d%2d%2d%2d",      
+          &tm1.tm_year,   
+          &tm1.tm_mon,   
+          &tm1.tm_mday,   
+          &tm1.tm_hour,   
+          &tm1.tm_min,  
+          &tm1.tm_sec);  
+          
+    tm1.tm_year -= 1900;  
+     tm1.tm_mon --;  
+  
+  
+    tm1.tm_isdst=-1;  
+    
+    time1 = mktime(&tm1);  
+    return time1;  
+}
+
+
+//指定YYYYMMDDHH24MISS型的时间，格式化为time_t型的时间  
+SYSTEMTIME CTransmissionDlg::FormatTime2(TCHAR * szTime)  
+{  
+  SYSTEMTIME tm1;  
+  _stscanf_s( szTime, _T("%4d-%2d-%2d %2d:%2d:%2d"),     
+    &tm1.wYear,   
+    &tm1.wMonth,   
+    &tm1.wDay,   
+    &tm1.wHour,   
+    &tm1.wMinute,  
+    &tm1.wSecond );  
+    return tm1;  
 }
 
 
@@ -205,6 +426,10 @@ void CTransmissionDlg::HttpPostFile( CString ServerName, CString ServerPath, int
 	 CString ProgressText; // 进度文字提示
 	 SetDlgItemText(IDC_STATUS_STATIC, _T("正在进行传输操作..."));
 
+	 // 获取目标文件大小
+	 int Size = GetFileSize(File);
+
+	 // 上传文件
      while((byteRead = cfile.Read(buffer , bufflength)) != 0)
      {
 		 // 设置新的进度条位置
@@ -212,10 +437,10 @@ void CTransmissionDlg::HttpPostFile( CString ServerName, CString ServerPath, int
          pFile->Write(buffer , byteRead);
 
 		 //更新进度
-		 m_Progress.SetRange32(0, byteRead);
+		 m_Progress.SetRange32(0, Size);
 		 m_Progress.SetPos(pos);
 
-		 ProgressText.Format(_T("传输中 (进度: %s / %s)"), OnGetSize(pos), OnGetSize(byteRead));
+		 ProgressText.Format(_T("传输中 (进度: %s / %s)"), OnGetSize(pos), OnGetSize(Size));
 		 SetDlgItemText(IDC_STATUS_STATIC, ProgressText);
 	 }
      cfile.Close();
@@ -259,10 +484,10 @@ void CTransmissionDlg::HttpPostFile( CString ServerName, CString ServerPath, int
 	 UserId = TargetPath.Left(TargetPath.GetLength() - Temp.GetLength() -1);
 
 	 // 方法
-	 if(IsCode)
+	 if(IsCode || IsProject)
 	 {
-		 Parent = Temp.Left(Temp.GetLength() - Temp.Find('/') );
-		 Sub    = Temp.Right(Temp.GetLength() - Parent.GetLength() -1);
+		 Sub    = Temp.Right(Temp.GetLength() - Temp.ReverseFind('/') -1);
+		 Parent = Temp.Left(Temp.GetLength()  - Sub.GetLength() -1);
 	 }
 	 else if(!IsCode && !IsProject)
 	 {
@@ -273,21 +498,6 @@ void CTransmissionDlg::HttpPostFile( CString ServerName, CString ServerPath, int
 		 Temp   = Temp.Left(Temp.GetLength() - Item.GetLength() -1);
 		 Sub    = Temp.Right(Temp.GetLength() - Temp.ReverseFind('/') -1);
 		 Parent = _T("File/") + Temp.Left(Temp.GetLength() - Sub.GetLength() -1);
-	 }
-	 else
-	 {
-		 if(Temp.Replace(_T("master"), _T("master")) || Temp.Replace(_T("hotfix"), _T("hotfix")) )
-		 {
-			 // 项目
-			 Parent = Temp.Left(Temp.GetLength()  - Temp.Find('/'));
-			 Sub    = Temp.Right(Temp.GetLength() - Parent.GetLength() -1);
-		 }
-		 else
-		 {
-			 // 项目
-			 Parent = Temp.Left(Temp.GetLength()  - Temp.Find('/') -1);
-			 Sub    = Temp.Right(Temp.GetLength() - Parent.GetLength() -1);
-		 }
 	 }
 	 
 	 // 参数赋值
@@ -724,6 +934,19 @@ void CTransmissionDlg::Complete()
 			{
 				AfxMessageBox(_T("移动目标失败!"));
 			}
+
+			// 修改本地文件时间
+			if(ModifyTime)
+			{
+				ModifyList;
+
+				// 修改本地文件修改时间
+				CFileStatus Status;
+				CString ModifyTime = ModifyList->GetAt(Target -1);
+
+				Status.m_mtime = FormatTime2(ModifyTime.GetBuffer());
+				CFile::SetStatus(FilePath, Status);
+			}
 		}
 		else if(IsProject)
 		{
@@ -747,10 +970,10 @@ void CTransmissionDlg::Complete()
 			CString Parament = _T("Application\\7z x -t7z -y ") + FileName;
 
 			// 等待主程序关闭之后执行解压
-			CString strParam = _T("/C choice /t 0.5 /d y /n > nul & tasklist | find /i \"编程助理.exe\" && taskkill /im 编程助理.exe /f || echo NotFind & ");
+			CString strParam = _T("/C choice /t 1 /d y /n > nul & tasklist | find /i \"编程助理.exe\" && taskkill /im 编程助理.exe /f || echo NotFind & ");
 			strParam += Parament;
 			strParam += _T(" & del ") + FileName;
-			strParam += _T(" & Start 编程助理.exe & pause");
+			strParam += _T(" & Start 编程助理 -readonce 更新说明");
 
 			// 调用命令行 执行更新
 			ShellExecute(NULL, NULL, _T("cmd.exe"), strParam, NULL, SW_HIDE);
@@ -791,6 +1014,19 @@ void CTransmissionDlg::Complete()
 			{
 				AfxMessageBox(_T("移动目标失败!"));
 			}
+
+			// 修改本地文件时间
+			if(ModifyTime)
+			{
+				ModifyList;
+
+				// 修改本地文件修改时间
+				CFileStatus Status;
+				CString ModifyTime = ModifyList->GetAt(Target);
+
+				Status.m_mtime = FormatTime2(ModifyTime.GetBuffer());
+				CFile::SetStatus(FilePath, Status);
+			}
 		}
 	}
 	else
@@ -817,8 +1053,11 @@ void CTransmissionDlg::Complete()
 		// 自动关闭
 		if(IsSynchronize)
 		{
-			CDialogEx::OnCancel();
+			PostMessage(WM_COMMAND, 102);
 		}
+
+		// 变量初始化
+		IsDownload = IsCode = IsProject = IsUpDate = IsSynchronize = ModifyTime = FALSE;
 	}
 }
 
@@ -870,7 +1109,15 @@ void CTransmissionDlg::OnCancel()
 	else if (IsTerminate)
 	{
 		IsFinished = false;
-		return;
+
+		if( MessageBox(_T("确定要终止操作吗?"), _T("终止操作确认"), MB_ICONQUESTION | MB_YESNO) != IDYES )
+			return;
+		else
+		{
+			// 终止线程
+			m_pCurlDownloader->Terminate();
+			CDialogEx::OnCancel();
+		}
 	}
 	else
 	{

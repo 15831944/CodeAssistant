@@ -176,6 +176,10 @@ class Account extends Controller
         $id      = input("post.id");
         $type     = input("post.type");
 
+        if (!file_exists('cloud')){
+            mkdir('cloud');
+        }
+
         if($type == 1)
         {
             $dirPath = 'cloud/'.$id.'/Code';
@@ -209,7 +213,7 @@ class Account extends Controller
     }
 
 
-	public function GetProjectInfo()
+    public function GetProjectInfo()
     {
         $id      = input("post.id");
 
@@ -224,7 +228,7 @@ class Account extends Controller
         }
 
 
-		//取出文件或者文件夹
+        //取出文件或者文件夹
         $list = scandir( $dirPath );
 
         foreach( $list as $file )
@@ -234,7 +238,7 @@ class Account extends Controller
         }
     }
 
-	
+
     public function UpLoadFile()
     {
         // 获取表单上传文件 例如上传了001.jpg
@@ -286,6 +290,11 @@ class Account extends Controller
         $sub     = input("param.sub");
         $item    = input("param.item");
 
+        if (!file_exists('cloud/'.$id))
+        {
+            mkdir('cloud/'.$id);
+        }
+
         if (!file_exists('cloud/'.$id.'/'.$parent))
         {
             mkdir('cloud/'.$id.'/'.$parent);
@@ -313,9 +322,9 @@ class Account extends Controller
         // 返回
         echo "Success";
     }
-	
-	
-	public function GetFileModifyTime()
+
+
+    public function GetFileModifyTime()
     {
         $path    = input("post.path");
         $dirPath = 'cloud/'.$path;
@@ -325,10 +334,113 @@ class Account extends Controller
     }
 
 
+    public function SetFileModifyTime()
+    {
+        $path    = input("post.path");
+        $time    = input("post.time");
+        $dirPath = 'cloud/'.$path;
+
+        // 时间解析
+        $arr = explode(";", $time);
+
+        // 修改时间
+        touch($dirPath, mktime($arr[0],$arr[1],$arr[2],$arr[3],$arr[4],$arr[5]));
+    }
+
+
+    public function DeleteFile()
+    {
+        $path = input('Path');
+        if (file_exists('cloud/'.$path))
+        {
+            if(unlink(('cloud/'.$path)))
+            {
+                // 目录解析
+                $arr = explode("/", $path);
+                $len = count($arr);
+                if($len == 5)
+                {
+                    $dir = 'cloud/'.$arr[0]."/".$arr[1]."/".$arr[2]."/".$arr[3];
+
+                    // 判断目录是否为空
+                    if( array_diff(scandir($dir),array('..','.')) == null)
+                    {
+                        // 删除目录
+                        $this->del_dir($dir);
+
+                        // 上级目录
+                        $dir = 'cloud/'.$arr[0]."/".$arr[1]."/".$arr[2];
+                        if( array_diff(scandir($dir),array('..','.')) == null)
+                        {
+                            // 删除目录
+                            $this->del_dir($dir);
+                        }
+                    }
+
+                    return "success";
+                }
+                else
+                {
+                    $dir = 'cloud/'.$arr[0]."/".$arr[1]."/".$arr[2]."/".$arr[3]."/".$arr[4];
+
+                    // 判断目录是否为空
+                    if( array_diff(scandir($dir),array('..','.')) == null)
+                    {
+                        // 删除目录
+                        $this->del_dir($dir);
+
+                        // 上级目录
+                        $dir = 'cloud/'.$arr[0]."/".$arr[1]."/".$arr[2]."/".$arr[3];
+                        if( array_diff(scandir($dir),array('..','.')) == null)
+                        {
+                            // 删除目录
+                            $this->del_dir($dir);
+
+                            // 上级目录
+                            $dir = 'cloud/'.$arr[0]."/".$arr[1]."/".$arr[2];
+                            if( array_diff(scandir($dir),array('..','.')) == null)
+                            {
+                                // 删除目录
+                                $this->del_dir($dir);
+                            }
+                        }
+                    }
+
+                    return "success";
+                }
+            }
+        }
+
+        return "error";
+    }
+
+
+    /**
+     * @param $fp
+     * @return bool
+     */
+    public function empty_dir($dir)
+    {
+        $a = array_diff(scandir($dir),array('..','.'));
+        if ($a)
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
+
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     // 网络项目管理
 
     // 得到用户数据
+    /**
+     * @return string
+     * @throws \think\exception\DbException
+     */
     public function GetUserInfo()
     {
         $user = new User();
@@ -337,6 +449,10 @@ class Account extends Controller
 
 
     // 得到小组数据
+    /**
+     * @return string
+     * @throws \think\exception\DbException
+     */
     public function GetGroup()
     {
         $project_id = input('id');
@@ -347,11 +463,18 @@ class Account extends Controller
 
 
     // 得到项目数据
+    /**
+     * @return string
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
+     */
     public function ProjectInfo()
     {
         $id = input('id');
         $share = input('share');
 
+        // 返回项目数据
         $project = new Project();
         if ($share == 2)
             return json_encode($project->where(['UserId' => $id])->paginate(100000));
@@ -385,6 +508,10 @@ class Account extends Controller
 
 
     // 得到版本数据
+    /**
+     * @return string
+     * @throws \think\exception\DbException
+     */
     public function GetVersionInfo()
     {
         $project = input('project_id');
@@ -395,6 +522,10 @@ class Account extends Controller
 
 
     // 获得项目数据
+    /**
+     * @return string
+     * @throws \think\exception\DbException
+     */
     public function GetProject()
     {
         // 获取参数
@@ -405,6 +536,10 @@ class Account extends Controller
     }
 
 
+    /**
+     * @return string
+     * @throws \think\exception\DbException
+     */
     public function GetOpenProject()
     {
         $project = new Project();
@@ -476,6 +611,14 @@ class Account extends Controller
         $role    = input("role");
         $type    = input("type");
 
+        // 创建项目目录
+        if (!file_exists('cloud/'.$user_id)){
+            mkdir('cloud/'.$user_id);
+        }
+        if (!file_exists('cloud/'.$user_id.'/Project')){
+            mkdir('cloud/'.$user_id.'/Project');
+        }
+
         $project = new Project();
         if($share != 2)
         {
@@ -484,8 +627,7 @@ class Account extends Controller
             {
                 if($project->where(['UserId' => $user_id, 'ProjectName' => $name])->count())
                 {
-                    echo "used";
-                    return;
+                    return "used";
                 }
             }
             else
@@ -493,8 +635,7 @@ class Account extends Controller
                 // 检测公共项目
                 if($project->where(['ProjectName' => $name, 'ShareStatus' =>  1])->count())
                 {
-                    echo "shared";
-                    return;
+                    return "shared";
                 }
             }
 
@@ -554,6 +695,8 @@ class Account extends Controller
                 }
             }
         }
+
+        return "error";
     }
 
 
@@ -605,7 +748,7 @@ class Account extends Controller
                 if($group->where(['ProjectId' => $project_id])->count())
                 {
                     $group->isUpdate()->save(['Member' => $member, 'Role' => $role, 'Type' => $type] ,['ProjectId' => $project_id]);
-                        return "success";
+                    return "success";
                 }
                 else
                 {
@@ -690,6 +833,8 @@ class Account extends Controller
         }
         else
             return "error";
+
+        return "error";
     }
 
 
@@ -749,6 +894,8 @@ class Account extends Controller
                 echo "error";
             }
         }
+
+        return "error";
     }
 
 
@@ -906,6 +1053,12 @@ class Account extends Controller
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     // 自动更新
 
+    /**
+     * @return string
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
+     */
     public function GetUpDataInfo()
     {
         $update   = new UpDate();
@@ -914,6 +1067,5 @@ class Account extends Controller
 
         return $version.";".$filepath.";";
     }
-
 
 }

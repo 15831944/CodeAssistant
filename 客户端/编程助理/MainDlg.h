@@ -22,17 +22,27 @@ public:
 	CComboBox m_Type;
 	COleRichEditCtrl m_Edit;
 
-	void DeleteDirectory(CString Directory);
+	void static DeleteDirectory(CString Directory);
 	void Refresh(), OnHelp();
 	void OnEditFunction();
 
 	void Split(CString source, CString divKey, CStringArray &dest);
 	void Complete();
 	void OnError();
-	void OnSuccess();
 
-	bool Compress(const char*scrfilename,const char*desfilename);
-	bool Uncompress(const char*scrfilename,const char*desfilename);
+	void OnCheck();
+	void OnSaveCode();
+	void OnNewCode();
+
+	void OnCopy(), OnPaste(), OnCut();
+	void OnUndo(), OnRedo();
+	BOOL GetPic(REOBJECT FAR* pObject);
+	void SetPic(), OnImage(), OnScreenCapture();
+	void OnLeft(), OnRight(), OnCenter();
+	int  static CountFile(CString DirPath);
+
+	bool Compress  (const char* scrfilename, const char* desfilename);
+	bool Uncompress(const char* scrfilename, const char* desfilename);
 
 // 对话框数据
 	enum { IDD = IDD_MAIN_DIALOG };
@@ -50,14 +60,18 @@ protected:
 	int Type;
 
 	// 线程对象
-	CWinThread * m_hOperate;
+	CWinThread * m_hOperate, * m_hUpDate;
 
-	CString UpDateInfo, Error, Msg;
+	CString UpDateInfo, Error, Msg, FilePath;
+	BOOL IsNew, IsSave;
+
+	IOleObject* m_pPicObj;
 
 	DECLARE_MESSAGE_MAP()
 public:
 	virtual BOOL OnInitDialog();
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
 
 	// 子窗口消息
 	afx_msg LRESULT OnMessageChild(WPARAM wParam, LPARAM lParam);
@@ -87,6 +101,7 @@ public:
 
 	afx_msg void OnRichEditLink(NMHDR* in_pNotifyHeader, LRESULT*out_pResult ); 
 	afx_msg void OnSetfocusCodeRichedit();
+	afx_msg void OnKillfocusCodeRichedit();
 
 	afx_msg void OnEdit();
 	afx_msg void OnClearFormat();
@@ -97,5 +112,5 @@ public:
 	afx_msg void OnNew();
 
 	virtual void OnCancel();
-	afx_msg void OnKillfocusCodeRichedit();
+	
 };

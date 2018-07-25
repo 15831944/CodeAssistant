@@ -14,7 +14,7 @@ public:
 	virtual ~CTransmissionDlg();
 
 	// 传输模式标识&传输对象标识
-	BOOL IsDownload, IsCode, IsProject, IsUpDate, IsSynchronize;
+	BOOL IsDownload, IsCode, IsProject, IsUpDate, IsSynchronize, ModifyTime;
 
 	// 下载组件对象
 	CurlDownloader * m_pCurlDownloader;
@@ -25,7 +25,7 @@ public:
 	BOOL IsPause, IsFinished, IsTerminate;
 	CProgressCtrl m_Progress;
 	CString DownloadPath, DownloadName, Error, UploadPath, UploadName, TargetPath;
-	CStringArray *TargetList;
+	CStringArray *TargetList, *ModifyList;
 
 	// 传输目标
 	int Total, Target;
@@ -47,9 +47,12 @@ protected:
 	void Prepare();
 	void Complete();
 	void Split(CString source, CString divKey, CStringArray &dest);
-
+	int  GetFileSize(CString Path);
 	void OnError();
 	void HttpPostFile( CString ServerName, CString ServerPath, int ServerPort, CString File, CString ParamName, CString ContentType );
+	
+	time_t FormatTime(char * szTime);
+	SYSTEMTIME FormatTime2(TCHAR * szTime);
 
 	DECLARE_MESSAGE_MAP()
 public:

@@ -23,12 +23,12 @@ class CMainApp : public CWinApp
 public:
 	CMainApp();
 
-	// 操作完成标志
-	BOOL IsFinished;
+	// 操作完成标志 & 读取一次
+	BOOL IsFinished, IsReadOnce;
 
 	// 数据库对象
 	CSqliteManager m_Sql; 
-	CString DataBase_Name, DataBase_Path;
+	CString DataBase_Name, DataBase_Path, CodePath;
 
 	// 数据库初始化
 	BOOL InitDataBase();
@@ -41,6 +41,12 @@ public:
 
 	// 得到程序版本号
 	CString GetApplicationVersion();
+
+	// 得到程序运行目录
+	CString GetModuleDir();
+
+	// 获取程序工作路径
+	CString GetWorkDir();
 
 	// 使用帮助
 	void OnHelp();

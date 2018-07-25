@@ -1374,7 +1374,7 @@ void CWebProjectDlg::OnClone()
 		Version.Replace(_T("-") + Branch, _T(""));
 
 		CStringArray TargetList;
-		CString      Target = UserId + _T("/Project/") + Project + _T("/") + Branch + _T("/") + Version + _T(".7z");
+		CString      Target = OwnerId + _T("/Project/") + Project + _T("/") + Branch + _T("/") + Version + _T(".7z");
 		TargetList.Add(Target);
 
 		CTransmissionDlg pDlg;

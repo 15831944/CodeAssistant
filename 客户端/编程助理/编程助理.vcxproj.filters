@@ -24,6 +24,9 @@
     <None Include="res\编程助理.ico">
       <Filter>资源文件</Filter>
     </None>
+    <None Include="res\code.ico">
+      <Filter>资源文件</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="编程助理.h">

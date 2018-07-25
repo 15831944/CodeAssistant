@@ -59,8 +59,8 @@
     <TargetExt>.lib</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>..\bin\release\</OutDir>
-    <IntDir>..\obj\Release\clzma\</IntDir>
+    <OutDir>..\..\bin\release\</OutDir>
+    <IntDir>..\..\obj\Release\clzma\</IntDir>
     <TargetName>clzma</TargetName>
     <TargetExt>.lib</TargetExt>
   </PropertyGroup>

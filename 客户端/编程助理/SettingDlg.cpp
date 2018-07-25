@@ -14,7 +14,6 @@ IMPLEMENT_DYNAMIC(CSettingDlg, CDialogEx)
 CSettingDlg::CSettingDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CSettingDlg::IDD, pParent)
 {
-
 }
 
 CSettingDlg::~CSettingDlg()
@@ -81,7 +80,9 @@ void CSettingDlg::OnReadSetting()
 	int Open  = GetPrivateProfileInt(_T("Setting"), _T("Open"),  1, _T("./Setting.ini"));
 	int Update= GetPrivateProfileInt(_T("Setting"), _T("Update"),1, _T("./Setting.ini"));
 	int Synchronize = GetPrivateProfileInt(_T("Setting"), _T("Synchronize"), 0, _T("./Setting.ini"));
-
+	    Associate   = GetPrivateProfileInt(_T("Setting"), _T("Associate"), 0, _T("./Setting.ini"));
+	int Position    = GetPrivateProfileInt(_T("Setting"), _T("Position"), 0, _T("./Setting.ini"));
+	
 	int password  = GetPrivateProfileInt(_T("Account"), _T("Remember"),  0, _T("./Setting.ini"));
 	int login     = GetPrivateProfileInt(_T("Account"), _T("Auto"),  0, _T("./Setting.ini"));
 
@@ -93,6 +94,8 @@ void CSettingDlg::OnReadSetting()
 	((CButton*)GetDlgItem(IDC_OPEN_CHECK)) ->SetCheck(Open);
 	((CButton*)GetDlgItem(IDC_UPDATE_CHECK))->SetCheck(Update);
 	((CButton*)GetDlgItem(IDC_SYNCHRONIZE_CHECK))->SetCheck(Synchronize);
+	((CButton*)GetDlgItem(IDC_ASSOCIATE_CHECK))->SetCheck(Associate);
+	((CButton*)GetDlgItem(IDC_POSITION_CHECK))->SetCheck(Position);
 
 	((CButton*)GetDlgItem(IDC_PASSWORD_CHECK)) ->SetCheck(password);
 	((CButton*)GetDlgItem(IDC_LOGIN_CHECK))    ->SetCheck(login);
@@ -133,6 +136,421 @@ void CSettingDlg::OnReadSetting()
 }
 
 
+// 设置关联strPath所需的注册表环境,strPath为带路径的程序名
+void CSettingDlg::SetAssociateEnvironment(CString strPath)
+{
+	// 设置路径HKEY_CLASSES_ROOT\\mumayi下的键值
+	HKEY hkey;
+	CString strResult("");
+	LPBYTE OwnerGet = new BYTE[80];//定义用户姓名
+	memset(OwnerGet, 0, 80);
+	DWORD dType1 = REG_SZ;//定义数据类型
+	DWORD dLength = 80;//定义数据长度
+	CString strValue("");
+
+	if ( RegOpenKey( HKEY_CLASSES_ROOT, "CodeAssistant\\Shell\\Open\\Command\\", &hkey ) == ERROR_SUCCESS )
+	{
+		RegQueryValueEx(hkey, NULL, NULL, &dType1, OwnerGet, &dLength);
+		strResult = (LPTSTR)OwnerGet;
+
+		// 此处为了省事儿，直接写成了MuMaYiInstaller.exe，其实此处的应用名应该从strPath中解析出来
+		if ( -1 == strResult.Find(strPath + "\" \"%%1\""))
+		{
+			strValue.Format("\"%s\" \"%%1\"", strPath);
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+			RegOpenKey( HKEY_CLASSES_ROOT, "CodeAssistant\\Shell\\Open", &hkey);
+			strValue.Empty();
+			strValue.Format("用编程助理打开");
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+			RegOpenKey( HKEY_CLASSES_ROOT, "CodeAssistant", &hkey);
+			strValue.Empty();
+			strValue.Format("方法文件");
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+		}
+	}
+	else
+	{
+		if ( RegCreateKey( HKEY_CLASSES_ROOT, "CodeAssistant\\Shell\\Open\\Command", &hkey ) != ERROR_SUCCESS )
+		{
+			return;
+		}
+		else
+		{
+			strValue.Format("\"%s\" \"%%1\"", strPath);
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+			RegOpenKey( HKEY_CLASSES_ROOT, "CodeAssistant\\Shell\\Open", &hkey);
+			strValue.Empty();
+			strValue.Format("用编程助理打开");
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+			RegOpenKey( HKEY_CLASSES_ROOT, "CodeAssistant", &hkey);
+			strValue.Empty();
+			strValue.Format("方法文件");
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+		}
+	}
+
+	memset(OwnerGet, 0, 80);
+	if (strResult.IsEmpty())
+		strResult.Empty();
+	strValue.Empty();
+	if ( RegOpenKey( HKEY_CLASSES_ROOT, "CodeAssistant\\DefaultIcon\\", &hkey ) == ERROR_SUCCESS )
+	{
+		RegQueryValueEx(hkey, NULL, NULL, &dType1, OwnerGet, &dLength);
+		strResult = (LPTSTR)OwnerGet;
+		if ( -1 == strResult.Find(strPath + _T(",0")))
+		{
+			// 该关键字下没有我的软件相关名,修改之
+			strValue.Format("%s,1", strPath);
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+		}
+	}
+	else
+	{
+		if ( RegCreateKey( HKEY_CLASSES_ROOT, "CodeAssistant\\DefaultIcon", &hkey ) != ERROR_SUCCESS )
+		{
+			return;
+		}
+		else
+		{
+			strValue.Format("%s,1", strPath);
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+		}
+	}
+
+	// 设置路径"HKEY_LOCAL_MACHINE\\SORTWARE\\Classes\\mumayi\\"下的值
+
+	memset(OwnerGet, 0, 80);
+	if (strResult.IsEmpty())
+		strResult.Empty();
+	strValue.Empty();
+	if ( RegOpenKey( HKEY_LOCAL_MACHINE, "SORTWARE\\Classes\\CodeAssistant\\Shell\\Open\\Command\\", &hkey ) == ERROR_SUCCESS )
+	{
+		RegQueryValueEx(hkey, NULL, NULL, &dType1, OwnerGet, &dLength);
+		strResult = (LPTSTR)OwnerGet;
+		if ( -1 == strResult.Find(strPath + _T("\" \"%%1\"")))
+		{
+			strValue.Format("\"%s\" \"%%1\"", strPath);
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+			RegOpenKey( HKEY_LOCAL_MACHINE, "SORTWARE\\Classes\\CodeAssistant\\Shell\\Open\\", &hkey);
+			strValue.Empty();
+			strValue.Format("用编程助理打开");
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+			RegOpenKey( HKEY_LOCAL_MACHINE, "SORTWARE\\Classes\\CodeAssistant\\", &hkey);
+			strValue.Empty();
+			strValue.Format("方法文件");
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+		}
+	}
+	else
+	{
+		if ( RegCreateKey( HKEY_LOCAL_MACHINE, "SOFTWARE\\Classes\\CodeAssistant\\Shell\\Open\\Command", &hkey ) != ERROR_SUCCESS )
+		{
+			return;
+		}
+		else
+		{
+			strValue.Format("\"%s\" \"%%1\"", strPath);
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+			RegOpenKey( HKEY_LOCAL_MACHINE, "SOFTWARE\\Classes\\CodeAssistant\\Shell\\Open\\", &hkey);
+			strValue.Empty();
+			strValue.Format("用编程助理打开");
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+			RegOpenKey( HKEY_LOCAL_MACHINE, "SOFTWARE\\Classes\\CodeAssistant\\", &hkey);
+			strValue.Empty();
+			strValue.Format("方法文件");
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+		}
+	}
+
+	// 设置路径HKEY_CLASSES_ROOT\\mumayi下的键值
+	memset(OwnerGet, 0, 80);
+	if (strResult.IsEmpty())
+		strResult.Empty();
+	strValue.Empty();
+	if ( RegOpenKey( HKEY_CLASSES_ROOT, "SOFTWARE\\Classes\\CodeAssistant\\DefaultIcon\\", &hkey ) == ERROR_SUCCESS )
+	{
+		RegQueryValueEx(hkey, NULL, NULL, &dType1, OwnerGet, &dLength);
+		strResult = (LPTSTR)OwnerGet;
+		if ( -1 == strResult.Find(strPath + _T(",0")) )
+		{
+			// 该关键字下没有我的软件相关名,修改之
+			strValue.Format("%s,1", strPath);
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+		}
+	}
+	else
+	{
+		if ( RegCreateKey( HKEY_CLASSES_ROOT, "SOFTWARE\\Classes\\CodeAssistant\\DefaultIcon", &hkey ) != ERROR_SUCCESS )
+		{
+			return;
+		}
+		else
+		{
+			strValue.Format("%s,1", strPath);
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+		}
+	}
+
+	// 释放变量
+	delete[] OwnerGet;
+
+	// 通知系统，文件关联改变了
+	SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST,NULL,NULL);
+	SHChangeNotify(SHCNE_UPDATEIMAGE,SHCNF_DWORD,NULL,NULL);
+}
+
+
+//函数名称：AssociateApkFile
+//函数功能：关联apk文件和图标
+//输入参数：strType 文件类型  .apk .mpk等
+//     strPath 程序路径名 与文件关联的可执行程序的带路径的文件名
+//返 回 值：NULL
+//函数说明：
+void CSettingDlg::AssociateFile(CString strType, CString strPath)
+{
+	//HKEY_LOCAL_MACHINE/Software/Classes/等于HKEY_CLASSES_ROOT
+	HKEY hkey;
+	CString strKeyName("CodeAssistant");
+	CString strResult("");
+	LPBYTE OwnerGet = new BYTE[80];//定义用户姓名
+	memset(OwnerGet, 0, 80);
+	DWORD dType1 = REG_SZ;//定义数据类型
+	DWORD dLength = 80;//定义数据长度
+	CString strValue("");
+	CString strRegPath("");
+	strRegPath = strType + "\\"; // .apk
+
+	// 设置路径"HKEY_CLASS_ROOT\\.apk"的键值，关联.apk文件用
+	if ( RegOpenKey( HKEY_CLASSES_ROOT, strRegPath, &hkey ) == ERROR_SUCCESS )
+	{
+		RegQueryValueEx(hkey, NULL, NULL, &dType1, OwnerGet, &dLength);
+		strResult = (LPTSTR)OwnerGet;
+		if ( -1 == strResult.Find(CString("CodeAssistant")))
+		{
+			strValue.Format("CodeAssistant");
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+		}
+	}
+	else
+	{
+		if ( RegCreateKey( HKEY_CLASSES_ROOT, strType, &hkey ) != ERROR_SUCCESS )
+		{
+			return;
+		}
+		else
+		{
+			strValue.Format("CodeAssistant");
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+		}
+	}
+
+	// 设置"SOFTWARE\\Classes\\.apk"的键值
+	memset(OwnerGet, 0, 80);
+	if (strResult.IsEmpty())
+		strResult.Empty();
+	strValue.Empty();
+	strRegPath = CString("SOFTWARE\\Classes\\") + strType + "\\"; // SOFTWARE\\Classes\\.apk\\
+
+	if ( RegOpenKey( HKEY_LOCAL_MACHINE, strRegPath, &hkey ) == ERROR_SUCCESS )
+	{
+		RegQueryValueEx(hkey, NULL, NULL, &dType1, OwnerGet, &dLength);
+		strResult = (LPTSTR)OwnerGet;
+		if ( -1 == strResult.Find("CodeAssistant"))
+		{
+			// 该关键字下没有我的软件相关名,修改之
+			strValue.Format("CodeAssistant");
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+		}
+	}
+	else
+	{
+		if ( RegCreateKey( HKEY_LOCAL_MACHINE, strRegPath, &hkey ) != ERROR_SUCCESS )
+		{
+			return;
+		}
+		else
+		{
+			strValue.Format("CodeAssistant");
+			RegSetValue(hkey, _T(""), REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+		}
+	}
+
+	// 设置路径"HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.apk\\UserChoice"的值
+	memset(OwnerGet, 0, 80);
+	if (strResult.IsEmpty())
+		strResult.Empty();
+	strValue.Empty();
+	strRegPath = CString("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\") + strType + "\\UserChoice";
+
+	if ( RegOpenKey( HKEY_CURRENT_USER, strRegPath, &hkey ) == ERROR_SUCCESS )
+	{
+		RegQueryValueEx(hkey, NULL, NULL, &dType1, OwnerGet, &dLength);
+		strResult = (LPTSTR)OwnerGet;
+		if ( -1 == strResult.Find("CodeAssistant"))
+		{
+			// 该关键字下没有我的软件相关名,修改之
+			strValue.Format("CodeAssistant");
+			RegSetValue(hkey, "Progid", REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "Progid", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+		}
+	}
+	else
+	{
+		if ( RegCreateKey( HKEY_CURRENT_USER, strRegPath, &hkey ) != ERROR_SUCCESS )
+		{
+			return;
+		}
+		else
+		{
+			strValue.Format("CodeAssistant");
+			RegSetValue(hkey, "Progid", REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "Progid", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+		}
+	}
+	memset(OwnerGet, 0, 80);
+	if (strResult.IsEmpty())
+		strResult.Empty();
+	strValue.Empty();
+	strRegPath = CString("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\") + strType;
+	if ( RegOpenKey( HKEY_CURRENT_USER, strRegPath, &hkey ) == ERROR_SUCCESS )
+	{
+		RegQueryValueEx(hkey, NULL, NULL, &dType1, OwnerGet, &dLength);
+		strResult = (LPTSTR)OwnerGet;
+		if ( -1 == strResult.Find("CodeAssistant"))
+		{
+			// 该关键字下没有我的软件相关名,修改之
+			strValue.Format("CodeAssistant");
+			RegSetValue(hkey, "Progid", REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "Progid", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+		}
+	}
+	else
+	{
+		if ( RegCreateKey( HKEY_CURRENT_USER, strRegPath, &hkey ) != ERROR_SUCCESS )
+		{
+			return;
+		}
+		else
+		{
+			strValue.Format("CodeAssistant");
+			RegSetValue(hkey, "Progid", REG_SZ, strValue, strValue.GetLength()+1);
+			RegSetValueEx(hkey, "Progid", 0, REG_SZ, (const BYTE*)strValue.GetBuffer(strValue.GetLength()), strValue.GetLength()+1);
+			RegCloseKey(hkey);
+		}
+	}
+
+	// 释放变量
+	delete[] OwnerGet;
+
+	// 通知系统，文件关联改变了
+	SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST,NULL,NULL);
+	SHChangeNotify(SHCNE_UPDATEIMAGE,SHCNF_DWORD,NULL,NULL);
+}
+
+
+void CSettingDlg::DeleteAssociate()
+{
+	CRegKey regkey;
+
+	// CodeAssistant
+	regkey.Attach(HKEY_CLASSES_ROOT);
+	if(regkey.RecurseDeleteKey(_T("CodeAssistant")) != ERROR_SUCCESS)
+        AfxMessageBox(_T("无法删除 HKEY_CLASSES_ROOT 下的 CodeAssistant"));
+
+	// .code
+	regkey.Attach(HKEY_CLASSES_ROOT);
+	if(regkey.RecurseDeleteKey(_T(".code")) != ERROR_SUCCESS)
+        AfxMessageBox(_T("无法删除 HKEY_CLASSES_ROOT 下的 .code"));
+
+	// SOFTWARE\\Classes\\CodeAssistant
+	regkey.Attach(HKEY_CLASSES_ROOT);
+	if(regkey.RecurseDeleteKey(_T("SOFTWARE\\Classes\\CodeAssistant")) != ERROR_SUCCESS)
+        AfxMessageBox(_T("无法删除 HKEY_CLASSES_ROOT 下的 SOFTWARE\\Classes\\CodeAssistant"));
+
+	// Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.code
+	regkey.Attach(HKEY_CURRENT_USER);
+	if(regkey.RecurseDeleteKey(_T("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.code")) != ERROR_SUCCESS)
+	{
+		if(RegDeleteTree(HKEY_CURRENT_USER, _T("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.code") ) != ERROR_SUCCESS)
+			AfxMessageBox(_T("无法删除 HKEY_CURRENT_USER 下的 Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.code"));
+	}
+
+	// 通知系统，文件关联改变了
+	SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST,NULL,NULL);
+	SHChangeNotify(SHCNE_UPDATEIMAGE,SHCNF_DWORD,NULL,NULL);
+}
+
+
+BOOL CSettingDlg::IsAdministrator() {//判断是否管理员模式
+
+	BOOL bIsElevated = FALSE;
+	HANDLE hToken = NULL;
+	UINT16 uWinVer = LOWORD(GetVersion());
+	uWinVer = MAKEWORD(HIBYTE(uWinVer),LOBYTE(uWinVer));
+
+	if (uWinVer < 0x0600)//不是VISTA、Windows7
+		return(FALSE);
+
+	if (OpenProcessToken(GetCurrentProcess(),TOKEN_QUERY,&hToken)) {
+
+		struct {
+			DWORD TokenIsElevated;
+		} /*TOKEN_ELEVATION*/te;
+		DWORD dwReturnLength = 0;
+
+		if (GetTokenInformation(hToken,/*TokenElevation*/(_TOKEN_INFORMATION_CLASS)20,&te,sizeof(te),&dwReturnLength)) {
+			if (dwReturnLength == sizeof(te))
+				bIsElevated = te.TokenIsElevated;
+		}
+		CloseHandle( hToken );
+	}
+	return bIsElevated;
+}
+
+
 void CSettingDlg::OnSelchangeSkinCombo()
 {
 	m_Skin.GetWindowText(SkinName);
@@ -155,7 +573,7 @@ void CSettingDlg::OnDropdownSkinCombo()
 void CSettingDlg::OnOK()
 {
 	// 变量
-	CString Clear, Top, Save, Open, Password, Login, Update, Synchronize;
+	CString Clear, Top, Save, Open, Password, Login, Update, Synchronize, Associate, Position;
 
 	// 清除格式
 	if( ((CButton*)GetDlgItem(IDC_CLEAR_CHECK))->GetCheck() )
@@ -209,6 +627,11 @@ void CSettingDlg::OnOK()
 	{
 		// 赋值
 		Open = _T("0");
+
+		// 清空
+		::WritePrivateProfileString(_T("File"), _T("Class"), _T(""), _T("./Setting.ini"));
+		::WritePrivateProfileString(_T("File"), _T("Type"),  _T(""), _T("./Setting.ini"));
+		::WritePrivateProfileString(_T("File"), _T("Name"),  _T(""), _T("./Setting.ini"));
 	}
 
 
@@ -241,6 +664,9 @@ void CSettingDlg::OnOK()
 	{
 		// 赋值
 		Update = _T("1");
+
+		// 通知主窗口检查更新
+		::SendMessage(theApp.m_pMainWnd->GetSafeHwnd(), WM_CHILDMESSAGE, 3, 0);
 	}
 	else
 	{
@@ -279,6 +705,128 @@ void CSettingDlg::OnOK()
 		Synchronize = _T("0");
 	}
 
+	// 文件关联
+	if( ((CButton*)GetDlgItem(IDC_ASSOCIATE_CHECK))->GetCheck() )
+	{
+		TCHAR exeFullPath[MAX_PATH]; // MAX_PATH
+		GetModuleFileName(NULL,exeFullPath,MAX_PATH);//得到程序模块名称，全路径
+		CString Path(exeFullPath);
+
+		// 勾选文件关联
+		if(this->Associate == 0)
+		{
+			if(!IsAdministrator())
+			{
+				// 赋值
+				Associate = _T("0");
+
+				if( MessageBox(_T("需要管理员权限才能继续, 是否提权并重启助理?"), _T("提权确认"), MB_ICONQUESTION | MB_YESNO) == IDYES )
+				{
+					// 提权 & 重新运行
+					SHELLEXECUTEINFO ShExecInfo = {0};
+					ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+					ShExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+
+					ShExecInfo.lpVerb       = _T("runas");
+					ShExecInfo.lpFile       = Path;
+					ShExecInfo.lpDirectory  = NULL;
+					ShExecInfo.lpParameters = NULL;
+
+					ShExecInfo.nShow = SW_SHOW;
+					ShellExecuteEx(&ShExecInfo);
+
+					// 通知主窗口关闭
+					::SendMessage(AfxGetApp()->GetMainWnd()->GetSafeHwnd(), WM_COMMAND, 102, 0);
+				}
+				else
+				{
+					// 赋值
+					Associate = _T("0");
+				}
+			}
+			else
+			{
+				// 赋值
+				Associate = _T("1");
+
+				// 关联文件
+				SetAssociateEnvironment(Path);
+				AssociateFile(_T(".code"), Path);
+			}
+		}
+		else
+		{
+			Associate.Format(_T("%d"), this->Associate);
+		}
+	}
+	else
+	{
+		TCHAR exeFullPath[MAX_PATH]; // MAX_PATH
+		GetModuleFileName(NULL,exeFullPath,MAX_PATH);//得到程序模块名称，全路径
+		CString Path(exeFullPath);
+
+		// 勾选文件关联
+		if(this->Associate == 1)
+		{
+			if(!IsAdministrator())
+			{
+				if( MessageBox(_T("需要管理员权限才能继续, 是否提权并重启助理?"), _T("提权确认"), MB_ICONQUESTION | MB_YESNO) == IDYES )
+				{
+					// 赋值
+					Associate = _T("1");
+
+					// 提权 & 重新运行
+					SHELLEXECUTEINFO ShExecInfo = {0};
+					ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+					ShExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+
+					ShExecInfo.lpVerb       = _T("runas");
+					ShExecInfo.lpFile       = Path;
+					ShExecInfo.lpDirectory  = NULL;
+					ShExecInfo.lpParameters = NULL;
+
+					ShExecInfo.nShow = SW_SHOW;
+					ShellExecuteEx(&ShExecInfo);
+
+					// 通知主窗口关闭
+					::SendMessage(AfxGetApp()->GetMainWnd()->GetSafeHwnd(), WM_COMMAND, 102, 0);
+				}
+				else
+				{
+					// 赋值
+					Associate = _T("1");
+				}
+			}
+			else
+			{
+				// 赋值
+				Associate = _T("0");
+
+				// 删除文件关联
+				DeleteAssociate();
+			}
+		}
+		else
+		{
+			Associate.Format(_T("%d"), this->Associate);
+		}
+	}
+
+	// 保存位置
+	if( ((CButton*)GetDlgItem(IDC_POSITION_CHECK))->GetCheck() )
+	{
+		// 赋值
+		Position = _T("1");
+	}
+	else
+	{
+		// 赋值
+		Position = _T("0");
+
+		// 清空
+		::WritePrivateProfileString(_T("Position"), _T("WindowPosition"), _T(""), _T("./Setting.ini"));
+	}
+
 
 	// 保存配置文件
 	::WritePrivateProfileString(_T("Setting"), _T("Clear"), Clear, _T("./Setting.ini"));
@@ -287,6 +835,8 @@ void CSettingDlg::OnOK()
 	::WritePrivateProfileString(_T("Setting"), _T("Open"),  Open,  _T("./Setting.ini"));
 	::WritePrivateProfileString(_T("Setting"), _T("Update"),Update,_T("./Setting.ini"));
 	::WritePrivateProfileString(_T("Setting"), _T("Synchronize"), Synchronize, _T("./Setting.ini"));
+	::WritePrivateProfileString(_T("Setting"), _T("Associate"),   Associate,   _T("./Setting.ini"));
+	::WritePrivateProfileString(_T("Setting"), _T("Position"),    Position,    _T("./Setting.ini"));
 
 	::WritePrivateProfileString(_T("Account"), _T("Remember"),  Password,  _T("./Setting.ini"));
 	::WritePrivateProfileString(_T("Account"), _T("Auto"),      Login,     _T("./Setting.ini"));

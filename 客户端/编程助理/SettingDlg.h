@@ -1,7 +1,6 @@
 #pragma once
 #include "afxwin.h"
 
-
 // CSettingDlg 对话框
 
 class CSettingDlg : public CDialogEx
@@ -13,6 +12,8 @@ public:
 	virtual ~CSettingDlg();
 
 	void OnReadSetting();
+	void SetAssociateEnvironment(CString strPath), AssociateFile(CString strType, CString strPath), DeleteAssociate();
+	BOOL IsAdministrator();
 
 // 对话框数据
 	enum { IDD = IDD_SETTING_DIALOG };
@@ -21,6 +22,7 @@ protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
 	CComboBox m_Skin;
 	CString SkinName;
+	int Associate;
 
 	DECLARE_MESSAGE_MAP()
 public:

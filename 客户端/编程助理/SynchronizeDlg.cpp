@@ -5,9 +5,11 @@
 #include "编程助理.h"
 #include "SynchronizeDlg.h"
 #include "afxdialogex.h"
+#include "MainDlg.h"
 
 #include "TransmissionDlg.h"
 #include "WebProjectDlg.h"
+#include "ProjectDlg.h"
 
 // CSynchronizeDlg 对话框
 
@@ -17,7 +19,7 @@ CSynchronizeDlg::CSynchronizeDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CSynchronizeDlg::IDD, pParent)
 {
 	IsCode = TRUE;
-	m_hOperate = NULL;
+	m_hOperate = m_hDelete = NULL;
 	Type = 1;
 
 	IsAutoSynchronize = FALSE;
@@ -49,6 +51,7 @@ BEGIN_MESSAGE_MAP(CSynchronizeDlg, CDialogEx)
 
 	ON_COMMAND(100, &CSynchronizeDlg::OnSuccess)
 	ON_COMMAND(101, &CSynchronizeDlg::OnError)
+	ON_COMMAND(102, &CSynchronizeDlg::OnMessage)
 END_MESSAGE_MAP()
 
 
@@ -60,7 +63,7 @@ BOOL CSynchronizeDlg::OnInitDialog()
 	CDialogEx::OnInitDialog();
 
 	// 刷新数据
-	HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地源码库"));//插入根节点
+	HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地源码库 (按 delete 删除源码)"));//插入根节点
 	ShowFile(_T("Code"), m_TreeRoot);//根目录进行遍历
 
 
@@ -75,6 +78,17 @@ BOOL CSynchronizeDlg::OnInitDialog()
 
 BOOL CSynchronizeDlg::PreTranslateMessage(MSG* pMsg)
 {
+	UINT  nKeyCode = pMsg->wParam; // virtual key code of the key pressed
+	if (pMsg->message == WM_KEYDOWN)
+	{
+		// 按下Delete 或 BACK
+		if ( nKeyCode == VK_DELETE || nKeyCode == VK_BACK )
+		{
+			OnDelete();
+			return true;
+		}
+	}
+
 	return CDialogEx::PreTranslateMessage(pMsg);
 }
 
@@ -200,7 +214,7 @@ void CSynchronizeDlg::OnSuccess()
 			CStringArray TextArray;
 			Split(ServerInfo, _T(";"), TextArray);
 
-			HTREEITEM rootItem = m_Server.InsertItem(_T("云端源码库"), 0, 0, NULL), parentItem, subItem;
+			HTREEITEM rootItem = m_Server.InsertItem(_T("云端源码库 (按 delete 删除源码)"), 0, 0, NULL), parentItem, subItem;
 
 			CString Parent, Sub;
 			for(int i=0; i<TextArray.GetSize() -1; i++)
@@ -243,7 +257,7 @@ void CSynchronizeDlg::OnSuccess()
 			CStringArray TextArray;
 			Split(ServerInfo, _T(";"), TextArray);
 
-			HTREEITEM rootItem = m_Server.InsertItem(_T("云端文件库"), 0, 0, NULL), parentItem, subItem, subFile;
+			HTREEITEM rootItem = m_Server.InsertItem(_T("云端文件库 (按 delete 删除文件)"), 0, 0, NULL), parentItem, subItem, subFile;
 
 			CString Parent, Sub, Item, Function;
 			for(int i=0; i<TextArray.GetSize() -1; i++)
@@ -306,6 +320,22 @@ void CSynchronizeDlg::OnError()
 }
 
 
+void CSynchronizeDlg::OnMessage()
+{
+	MessageBox(Message, _T("提示消息"), MB_ICONINFORMATION);
+}
+
+
+void CSynchronizeDlg::OnDelete()
+{
+	// 启动工作者线程
+	if (m_hDelete == NULL)
+	{
+		m_hDelete = AfxBeginThread(DeleteOperate, this);
+	}
+}
+
+
 void CSynchronizeDlg::GetTreeData(CTreeCtrl * pTreeCtrl, HTREEITEM hitem, BOOL IsCheck)
 {
 	if(hitem != NULL)
@@ -323,7 +353,10 @@ void CSynchronizeDlg::GetTreeData(CTreeCtrl * pTreeCtrl, HTREEITEM hitem, BOOL I
 					// 是文件
 					if(text.Replace(_T("."), _T(".")))
 					{
-						IsFile = true;
+						IsFile  = true;
+
+						CString CodeTarget = UserId + _T("/code") + TreeData + _T("/") + text;
+						CString FileTarget = UserId + _T("/file") + TreeData + _T("/") + text;
 
 						if(IsCode)
 							TargetList.Add( UserId + _T("/code") + TreeData + _T("/") + text);
@@ -335,8 +368,20 @@ void CSynchronizeDlg::GetTreeData(CTreeCtrl * pTreeCtrl, HTREEITEM hitem, BOOL I
 						IsFile = false;
 						TreeData += _T("/") + text;
 					}
+
+					// 记录当前数据
+					if(IsFile)
+					{
+						OldTree = _T("");
+					}
+					else
+					{
+						OldTree = TreeData;
+					}
 				}
 			}
+
+			// 同步
 			else
 			{
 				CString text = pTreeCtrl->GetItemText(hitem);
@@ -344,7 +389,10 @@ void CSynchronizeDlg::GetTreeData(CTreeCtrl * pTreeCtrl, HTREEITEM hitem, BOOL I
 				// 是文件
 				if(text.Replace(_T("."), _T(".")))
 				{
-					IsFile = true;
+					IsFile  = true;
+
+					CString CodeTarget = UserId + _T("/code") + TreeData + _T("/") + text;
+					CString FileTarget = UserId + _T("/file") + TreeData + _T("/") + text;
 
 					if(IsCode)
 						TargetList.Add( UserId + _T("/code") + TreeData + _T("/") + text);
@@ -356,6 +404,16 @@ void CSynchronizeDlg::GetTreeData(CTreeCtrl * pTreeCtrl, HTREEITEM hitem, BOOL I
 					IsFile = false;
 					TreeData += _T("/") + text;
 				}
+
+				// 记录当前数据
+				if(IsFile)
+				{
+					OldTree = _T("");
+				}
+				else
+				{
+					OldTree = TreeData;
+				}
 			}
 
 			// 递归
@@ -363,13 +421,28 @@ void CSynchronizeDlg::GetTreeData(CTreeCtrl * pTreeCtrl, HTREEITEM hitem, BOOL I
 			hitem = pTreeCtrl->GetNextItem(hitem, TVGN_NEXT);
 
 			// 清除多余路径
-			if(!IsFile)
+			if(IsCode)
 			{
-				TreeData = _T("");
+				if(!IsFile && OldTree.IsEmpty())
+				{
+					TreeData = _T("");
+				}
+				else
+				{
+					IsFile = false;
+				}
 			}
 			else
 			{
-				IsFile = false;
+				if(!IsFile && OldTree != TreeData)
+				{
+					CString Final = TreeData.Right(TreeData.GetLength() - TreeData.ReverseFind('/') -1);
+					TreeData = TreeData.Left(TreeData.GetLength() - Final.GetLength() -1);
+				}
+				else
+				{
+					IsFile = false;
+				}
 			}
 		}
 	}
@@ -406,6 +479,7 @@ void CSynchronizeDlg::OnAutoSynchronize()
 					IsFile = false;
 					TreeData = _T("");
 					TargetList.RemoveAll();
+					ModifyList.RemoveAll();
 
 					// 树数据列表
 					CStringArray Local_TargetList, Server_TargetList;
@@ -565,6 +639,9 @@ void CSynchronizeDlg::OnAutoSynchronize()
 								else
 								{
 									DownLoad.Add(Server_TargetList.GetAt(i));
+
+									// 加入时间队列
+									ModifyList.Add(ServerData);
 								}
 							}
 						}
@@ -583,6 +660,8 @@ void CSynchronizeDlg::OnAutoSynchronize()
 						{
 							CTransmissionDlg dlg;
 							dlg.TargetList = &DownLoad;
+							dlg.ModifyList = &ModifyList;
+							dlg.ModifyTime = true;
 							dlg.IsDownload = true;
 							dlg.IsCode     = IsCode;
 							dlg.IsSynchronize = true;
@@ -664,6 +743,207 @@ UINT CSynchronizeDlg::Operate(LPVOID pParam)
 	// 对象置为空
 	pWnd->m_hOperate = NULL;
 	return false;
+}
+
+
+// 删除文件
+UINT CSynchronizeDlg::DeleteOperate(LPVOID pParam)
+{
+	// 窗口指针
+	CSynchronizeDlg * pWnd = ((CSynchronizeDlg*)pParam);
+
+	// 初始化数据
+	pWnd->IsFile = false;
+	pWnd->TreeData = _T("");
+	pWnd->TargetList.RemoveAll();
+
+	// 得到树数据
+	HTREEITEM root = pWnd->m_Local.GetRootItem();
+	pWnd->GetTreeData(&pWnd->m_Local, root, true);
+
+	if(pWnd->TargetList.GetSize() > 0)
+	{
+		// 显示消息提示
+		AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
+
+		for(int i=0; i < pWnd->TargetList.GetSize(); i++)
+		{
+			CString Target = pWnd->TargetList.GetAt(i);
+			Target = Target.Right(Target.GetLength() -1);
+			Target.Replace(_T("\\"), _T("/"));
+			Target = _T(".") + Target;
+
+			// 删除文件
+			DeleteFile(Target);
+
+			// 目录
+			CString File = Target.Right(Target.GetLength() - Target.ReverseFind('/') );
+			CString Path = Target.Left( Target.GetLength() - File.GetLength());
+
+			// 判断是否为空
+			if(CMainDlg::CountFile(Path) <= 0)
+			{
+				// 删除本地目录
+				CMainDlg::DeleteDirectory(Path);
+
+				File = Path.Right(Path.GetLength() - Path.ReverseFind('/') );
+				Path = Path.Left( Path.GetLength() - File.GetLength());
+
+				if(CMainDlg::CountFile(Path) <= 0)
+				{
+					// 删除本地目录
+					CMainDlg::DeleteDirectory(Path);
+
+					// 文件多一级目录
+					if(!pWnd->IsCode)
+					{
+						File = Path.Right(Path.GetLength() - Path.ReverseFind('/') );
+						Path = Path.Left( Path.GetLength() - File.GetLength());
+
+						if(CMainDlg::CountFile(Path) <= 0)
+							CMainDlg::DeleteDirectory(Path);
+					}
+				}
+			}
+		}
+
+		// 清空
+		pWnd->m_Local.DeleteAllItems();
+
+		// 判断类型
+		if(pWnd->IsCode)
+		{
+			// 刷新本地数据
+			HTREEITEM m_TreeRoot = pWnd->m_Local.InsertItem(_T("本地源码库"));//插入根节点
+			pWnd->ShowFile(_T("Code"), m_TreeRoot);//根目录进行遍历
+			pWnd->m_Local.Invalidate();
+
+			// 操作完成标志
+			theApp.IsFinished = true;
+
+			// 提示消息
+			pWnd->Message = _T("勾选的本地源码已全部删除!");
+			pWnd->PostMessage(WM_COMMAND, 102);
+		}
+		else
+		{
+			// 刷新本地数据
+			HTREEITEM m_TreeRoot = pWnd->m_Local.InsertItem(_T("本地文件库"));//插入根节点
+			pWnd->ShowFile(_T("File"), m_TreeRoot);//根目录进行遍历
+			pWnd->m_Local.Invalidate();
+
+			// 操作完成标志
+			theApp.IsFinished = true;
+
+			// 提示消息
+			pWnd->Message = _T("勾选的本地文件已全部删除!");
+			pWnd->PostMessage(WM_COMMAND, 102);
+		}
+	}
+
+	// 初始化数据
+	pWnd->IsFile = false;
+	pWnd->TreeData = _T("");
+	pWnd->TargetList.RemoveAll();
+
+	// 得到树数据
+	root = pWnd->m_Server.GetRootItem();
+	pWnd->GetTreeData(&pWnd->m_Server, root, true);
+
+	if(pWnd->TargetList.GetSize() > 0)
+	{
+		// 禁用按钮
+		pWnd->GetDlgItem(IDC_UPLOAD_BUTTON)->EnableWindow(FALSE);
+		pWnd->GetDlgItem(IDOK)->EnableWindow(FALSE);
+		pWnd->GetDlgItem(IDC_DOWNLOAD_BUTTON)->EnableWindow(FALSE);
+		pWnd->GetDlgItem(IDC_SWITCH_BUTTON)->EnableWindow(FALSE);
+		pWnd->GetDlgItem(IDC_VERSION_BUTTON)->EnableWindow(FALSE);
+
+		// 显示消息提示
+		AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
+
+		for(int i=0; i < pWnd->TargetList.GetSize(); i++)
+		{
+			CString Target = pWnd->TargetList.GetAt(i), Parameter;
+			Parameter.Format(_T("Path=%s"), Target);
+			
+			// 与服务器通讯
+			// 局部变量
+			CString RecvData;
+			BOOL IsSuccess;
+
+			// 获取服务器数据
+			try
+			{
+				RecvData = theApp.OnGetWebInfo(_T("www.shadowviolet.cn"), _T("index/account/DeleteFile"), 80, Parameter, IsSuccess);
+				if (RecvData == _T("") || RecvData.IsEmpty() || !IsSuccess)
+				{
+					pWnd->Error = _T("无法连接到服务器, 请检查网络。");
+					pWnd->PostMessage(WM_COMMAND, 101);
+				}
+				else
+				{
+					if (IsSuccess)
+					{
+						if( RecvData == _T("error") )
+						{
+							pWnd->Error = _T("目标文件不存在，删除失败。");
+							pWnd->PostMessage(WM_COMMAND, 101);
+						}
+						else if(RecvData != _T("success"))
+						{
+							pWnd->Error = _T("数据读取失败，请稍后再试。");
+							pWnd->PostMessage(WM_COMMAND, 101);
+						}
+					}
+					else
+					{
+						pWnd->Error = _T("无法连接到服务器, 请检查网络。");
+						pWnd->PostMessage(WM_COMMAND, 101);
+					}
+				}
+			}
+			catch (...)
+			{
+				pWnd->Error = _T("发生了异常，位于Operate的OnGetWebInfo方法。");
+				pWnd->PostMessage(WM_COMMAND, 101);
+			}
+		}
+
+		// 清空
+		pWnd->m_Server.DeleteAllItems();
+
+		// 刷新云端数据
+		pWnd->GetServerInfo();
+
+		// 操作完成标志
+		theApp.IsFinished = true;
+
+		// 判断类型
+		if(pWnd->IsCode)
+		{
+			// 提示消息
+			pWnd->Message = _T("勾选的云端源码已全部删除!");
+			pWnd->PostMessage(WM_COMMAND, 102);
+		}
+		else
+		{
+			// 提示消息
+			pWnd->Message = _T("勾选的云端文件已全部删除!");
+			pWnd->PostMessage(WM_COMMAND, 102);
+		}
+
+		// 激活按钮
+		pWnd->GetDlgItem(IDC_UPLOAD_BUTTON)->EnableWindow();
+		pWnd->GetDlgItem(IDOK)->EnableWindow();
+		pWnd->GetDlgItem(IDC_DOWNLOAD_BUTTON)->EnableWindow();
+		pWnd->GetDlgItem(IDC_SWITCH_BUTTON)->EnableWindow();
+		pWnd->GetDlgItem(IDC_VERSION_BUTTON)->EnableWindow();
+	}
+	
+	// 对象置为空
+	pWnd->m_hDelete = NULL;
+	return true;
 }
 
 
@@ -752,6 +1032,7 @@ void CSynchronizeDlg::OnOK()
 	IsFile = false;
 	TreeData = _T("");
 	TargetList.RemoveAll();
+	ModifyList.RemoveAll();
 
 	// 树数据列表
 	CStringArray Local_TargetList, Server_TargetList;
@@ -856,13 +1137,13 @@ void CSynchronizeDlg::OnOK()
 				if(IsCode)
 				{
 					// 刷新本地数据
-					HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地源码库"));//插入根节点
+					HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地源码库 (按 delete 删除源码)"));//插入根节点
 					ShowFile(_T("Code"), m_TreeRoot);//根目录进行遍历
 				}
 				else
 				{
 					// 刷新本地数据
-					HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地文件库"));//插入根节点
+					HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地文件库 (按 delete 删除文件)"));//插入根节点
 					ShowFile(_T("File"), m_TreeRoot);//根目录进行遍历
 				}
 			}
@@ -945,11 +1226,16 @@ void CSynchronizeDlg::OnOK()
 			{
 				if(LocalData > ServerData)
 				{
+					// 加入上传队列
 					UpLoad.Add(Local_TargetList.GetAt(i));
 				}
 				else
 				{
+					// 加入下载队列
 					DownLoad.Add(Server_TargetList.GetAt(i));
+
+					// 加入时间队列
+					ModifyList.Add(ServerData);
 				}
 			}
 		}
@@ -982,12 +1268,14 @@ void CSynchronizeDlg::OnOK()
 				GetServerInfo();
 			}
 
-			MessageBox(_T("云端已与本地数据完全同步!"));
+			MessageBox(_T("云端已与本地数据完全同步!"), _T("同步完成"), MB_ICONINFORMATION);
 		}
 		else if(DownLoad.GetSize() > 0)
 		{
 			CTransmissionDlg dlg;
 			dlg.TargetList = &DownLoad;
+			dlg.ModifyList = &ModifyList;
+			dlg.ModifyTime = true;
 			dlg.IsDownload = true;
 			dlg.IsCode     = IsCode;
 			dlg.DoModal();
@@ -1001,22 +1289,22 @@ void CSynchronizeDlg::OnOK()
 				if(IsCode)
 				{
 					// 刷新本地数据
-					HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地源码库"));//插入根节点
+					HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地源码库 (按 delete 删除源码)"));//插入根节点
 					ShowFile(_T("Code"), m_TreeRoot);//根目录进行遍历
 				}
 				else
 				{
 					// 刷新本地数据
-					HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地文件库"));//插入根节点
+					HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地文件库 (按 delete 删除文件)"));//插入根节点
 					ShowFile(_T("File"), m_TreeRoot);//根目录进行遍历
 				}
 
-				MessageBox(_T("云端已与本地数据完全同步!"));
+				MessageBox(_T("云端已与本地数据完全同步!"), _T("同步完成"), MB_ICONINFORMATION);
 			}
 		}
 		else
 		{
-			MessageBox(_T("云端已与本地数据完全同步!"));
+			MessageBox(_T("云端已与本地数据完全同步!"), _T("同步完成"), MB_ICONINFORMATION);
 		}
 	}
 }
@@ -1043,6 +1331,11 @@ void CSynchronizeDlg::OnUpload()
 
 		if(dlg.IsFinished)
 		{
+			// 去掉勾勾
+			HTREEITEM hitem = NULL;
+			m_Local.GetChildItem(hitem);
+			m_Local.SetCheck(hitem, 0);
+
 			// 清空云端列表
 			m_Server.DeleteAllItems();
 
@@ -1088,6 +1381,11 @@ void CSynchronizeDlg::OnDownload()
 
 		if(dlg.IsFinished)
 		{
+			// 去掉勾勾
+			HTREEITEM hitem = NULL;
+			m_Server.GetChildItem(hitem);
+			m_Server.SetCheck(hitem, 0);
+
 			// 清空本地列表
 			m_Local.DeleteAllItems();
 
@@ -1095,13 +1393,13 @@ void CSynchronizeDlg::OnDownload()
 			if(IsCode)
 			{
 				// 刷新本地数据
-				HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地源码库"));//插入根节点
+				HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地源码库 (按 delete 删除源码)"));//插入根节点
 				ShowFile(_T("Code"), m_TreeRoot);//根目录进行遍历
 			}
 			else
 			{
 				// 刷新本地数据
-				HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地文件库"));//插入根节点
+				HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地文件库 (按 delete 删除文件)"));//插入根节点
 				ShowFile(_T("File"), m_TreeRoot);//根目录进行遍历
 			}
 		}
@@ -1122,7 +1420,7 @@ void CSynchronizeDlg::OnSwitch()
 	if(!IsCode)
 	{
 		// 本地
-		HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地源码库"));//插入根节点
+		HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地源码库 (按 delete 删除源码)"));//插入根节点
 		ShowFile(_T("Code"), m_TreeRoot);//根目录进行遍历
 
 		// 云端
@@ -1133,7 +1431,7 @@ void CSynchronizeDlg::OnSwitch()
 	}
 	else
 	{
-		HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地文件库"));//插入根节点
+		HTREEITEM m_TreeRoot = m_Local.InsertItem(_T("本地文件库 (按 delete 删除文件)"));//插入根节点
 		ShowFile(_T("File"), m_TreeRoot);//根目录进行遍历
 
 		// 云端
