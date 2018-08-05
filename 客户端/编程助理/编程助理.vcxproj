@@ -109,18 +109,32 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="res\10.cur" />
+    <None Include="res\8.ico" />
+    <None Include="res\clip.ico" />
     <None Include="res\code.ico" />
+    <None Include="res\ColorSnap.ico" />
+    <None Include="res\magnifier.ico" />
     <None Include="res\My.rc2" />
     <None Include="res\编程助理.ico" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AssistantDlg.h" />
     <ClInclude Include="AutoCombox.h" />
+    <ClInclude Include="capture\common.h" />
+    <ClInclude Include="capture\FullScreenWnd.h" />
+    <ClInclude Include="capture\ImageButton.h" />
+    <ClInclude Include="capture\MagnifierDlg.h" />
+    <ClInclude Include="capture\PickColorDlg.h" />
+    <ClInclude Include="capture\ScreenToolDlg.h" />
+    <ClInclude Include="capture\SnapWindowDlg.h" />
     <ClInclude Include="code_base\ControlAnchor.h" />
     <ClInclude Include="code_base\CustomDrawCommon.h" />
     <ClInclude Include="code_base\CustomDrawControl.h" />
     <ClInclude Include="code_base\CustomDrawUtils.h" />
     <ClInclude Include="CurlDownload.h" />
     <ClInclude Include="CurlDownloadImpl.h" />
+    <ClInclude Include="DocumentDlg.h" />
     <ClInclude Include="EditDlg.h" />
     <ClInclude Include="GroupDlg.h" />
     <ClInclude Include="HttpFileEx.h" />
@@ -129,6 +143,7 @@
     <ClInclude Include="ModifyDlg.h" />
     <ClInclude Include="NotifyDlg.h" />
     <ClInclude Include="OleRichEditCtrl.h" />
+    <ClInclude Include="ParagraphDlg.h" />
     <ClInclude Include="ProjectDlg.h" />
     <ClInclude Include="RegisterDlg.h" />
     <ClInclude Include="Resource.h" />
@@ -139,6 +154,7 @@
     <ClInclude Include="SqliteManager.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="SynchronizeDlg.h" />
+    <ClInclude Include="TabSheet.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="threadpool.h" />
     <ClInclude Include="TransmissionDlg.h" />
@@ -147,13 +163,22 @@
     <ClInclude Include="编程助理.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AssistantDlg.cpp" />
     <ClCompile Include="AutoCombox.cpp" />
+    <ClCompile Include="capture\common.cpp" />
+    <ClCompile Include="capture\FullScreenWnd.cpp" />
+    <ClCompile Include="capture\ImageButton.cpp" />
+    <ClCompile Include="capture\MagnifierDlg.cpp" />
+    <ClCompile Include="capture\PickColorDlg.cpp" />
+    <ClCompile Include="capture\ScreenToolDlg.cpp" />
+    <ClCompile Include="capture\SnapWindowDlg.cpp" />
     <ClCompile Include="code_base\ControlAnchor.cpp" />
     <ClCompile Include="code_base\CustomDrawCommon.cpp" />
     <ClCompile Include="code_base\CustomDrawControl.cpp" />
     <ClCompile Include="code_base\CustomDrawUtils.cpp" />
     <ClCompile Include="CurlDownload.cpp" />
     <ClCompile Include="CurlDownloadImpl.cpp" />
+    <ClCompile Include="DocumentDlg.cpp" />
     <ClCompile Include="EditDlg.cpp" />
     <ClCompile Include="GroupDlg.cpp" />
     <ClCompile Include="HttpFileEx.cpp" />
@@ -162,6 +187,7 @@
     <ClCompile Include="ModifyDlg.cpp" />
     <ClCompile Include="NotifyDlg.cpp" />
     <ClCompile Include="OleRichEditCtrl.cpp" />
+    <ClCompile Include="ParagraphDlg.cpp" />
     <ClCompile Include="ProjectDlg.cpp" />
     <ClCompile Include="RegisterDlg.cpp" />
     <ClCompile Include="SearchDlg.cpp" />
@@ -174,6 +200,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="SynchronizeDlg.cpp" />
+    <ClCompile Include="TabSheet.cpp" />
     <ClCompile Include="threadpool.cpp" />
     <ClCompile Include="TransmissionDlg.cpp" />
     <ClCompile Include="WebEditDlg.cpp" />

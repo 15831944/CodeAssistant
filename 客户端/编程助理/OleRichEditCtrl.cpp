@@ -31,6 +31,7 @@ BEGIN_MESSAGE_MAP(COleRichEditCtrl, CRichEditCtrl)
 	//{{AFX_MSG_MAP(COleRichEditCtrl)
 	ON_WM_CREATE()
 	//}}AFX_MSG_MAP
+	ON_NOTIFY_REFLECT(EN_PROTECTED, &COleRichEditCtrl::OnEnProtected)
 END_MESSAGE_MAP()
 
 
@@ -323,7 +324,25 @@ COleRichEditCtrl::IExRichEditOleCallback::GetContextMenu(WORD seltyp, LPOLEOBJEC
 }
 
 
+void COleRichEditCtrl::OnEnProtected(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	ENPROTECTED *pEnProtected = reinterpret_cast<ENPROTECTED *>(pNMHDR);
+	// TODO:  控件将不发送此通知，除非您重写
+	// CRichEditCtrl::OnInitDialog() 函数，以将 EM_SETEVENTMASK 消息发送
+	// 到该控件，同时将 ENM_PROTECTED标志“或”运算到 lParam 掩码中。
 
+	// TODO:  在此添加控件通知处理程序代码
+	ENPROTECTED* pEP = (ENPROTECTED*)pNMHDR;
+	switch (pEP->msg) 
+	{
+	case WM_KEYDOWN://按键，判断pEP->wParam
+	case WM_COPY ://复制
+	case WM_PASTE://粘贴
+	case WM_CUT://剪切
+	case EM_SETCHARFORMAT:
+	default:
+		break;
+	};
 
-
-
+	*pResult = 0;
+}

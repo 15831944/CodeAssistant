@@ -16,6 +16,8 @@ public:
     int DeleteString(UINT nIndex);  
     int InsertString(int nIndex, LPCTSTR lpszString);  
     void ResetContent();  
+
+	void OnMatch();
   
     //set state  
     void SetFlag(UINT nFlag)  

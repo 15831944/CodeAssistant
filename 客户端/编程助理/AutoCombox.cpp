@@ -205,3 +205,9 @@ BOOL CAutoCombox::OnCommand(WPARAM wParam, LPARAM lParam)
         return CComboBox::OnCommand(wParam, lParam);  
     }  
 }
+
+
+void CAutoCombox::OnMatch()
+{
+	AutoMatchAndSel();
+}

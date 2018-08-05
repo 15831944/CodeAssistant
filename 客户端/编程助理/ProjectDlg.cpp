@@ -302,7 +302,7 @@ void CProjectDlg::CopyDirectory(CString source, CString target)
 			char szAppPath[MAX_PATH];
 			GetModuleFileName(NULL, szAppPath, MAX_PATH);
 			(strrchr(szAppPath, '\\'))[0] = 0;
-			if(finder.GetFilePath().Replace(szAppPath, _T("")))
+			if(finder.GetFilePath().Replace(szAppPath, _T("")) && target.Replace(szAppPath, _T("")) )
 			{
 				AfxMessageBox(_T("不能将程序自身添加进项目管理!"));
 				break;

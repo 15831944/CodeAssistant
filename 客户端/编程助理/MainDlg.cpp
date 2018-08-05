@@ -15,6 +15,8 @@
 #include "ProjectDlg.h"
 #include "TransmissionDlg.h"
 #include "SynchronizeDlg.h"
+#include "ParagraphDlg.h"
+
 
 #include "lzma/LzmaLib.h"
 
@@ -67,11 +69,22 @@ CMainDlg::CMainDlg(CWnd* pParent /*=NULL*/)
 	m_Setting = new CSettingDlg();
 
 	// 工作线程初始化
-	Type = 0;
+	Type = TabCount = 0;
 	m_hOperate = m_hUpDate = NULL;
 
-	IsNew = TRUE;
-	IsSave= FALSE;
+	IsNew  = TRUE;
+	IsEdit = FALSE;
+
+	CurClass = CurType = _T("");
+
+	// 编码助理
+	m_hCursor = AfxGetApp()->LoadCursor(IDC_TARGET_CURSOR);
+	m_pAssisDlg = new CAssistantDlg;
+	m_preWnd = NULL;
+	m_curWnd = NULL;
+	m_bSnap = FALSE;
+
+	IsExit = TRUE;
 }
 
 
@@ -79,6 +92,18 @@ CMainDlg::~CMainDlg()
 {
 	m_Setting->DestroyWindow();
 	delete m_Setting;
+
+	if(m_pAssisDlg != NULL)
+	{
+		m_pAssisDlg->DestroyWindow();
+		delete m_pAssisDlg;
+	}
+
+	for(int i=0; i<TabCount; i++)
+	{
+		m_pDocument[i]->DestroyWindow();
+		delete m_pDocument[i];
+	}
 }
 
 
@@ -88,7 +113,7 @@ void CMainDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_CODE_LIST, m_List);
 	DDX_Control(pDX, IDC_CLASS_COMBO, m_Class);
 	DDX_Control(pDX, IDC_TYPE_COMBO, m_Type);
-	DDX_Control(pDX, IDC_CODE_RICHEDIT, m_Edit);
+	DDX_Control(pDX, IDC_DOCUMENT_TAB, m_Tab);
 }
 
 
@@ -111,8 +136,6 @@ BEGIN_MESSAGE_MAP(CMainDlg, CDialogEx)
 	ON_CBN_DROPDOWN(IDC_TYPE_COMBO, &CMainDlg::OnDropdownTypeCombo)
 
 	ON_NOTIFY(NM_DBLCLK, IDC_CODE_LIST, &CMainDlg::OnDblclkCodeList)
-	
-	ON_NOTIFY(EN_LINK,IDC_CODE_RICHEDIT, OnRichEditLink) 
 	ON_NOTIFY(LVN_ITEMCHANGED, IDC_CODE_LIST, &CMainDlg::OnItemchangedCodeList)
 
 	ON_BN_CLICKED(IDC_EDIT_BUTTON, &CMainDlg::OnEdit)
@@ -120,11 +143,7 @@ BEGIN_MESSAGE_MAP(CMainDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_SETTING_BUTTON, &CMainDlg::OnSetting)
 
 	ON_MESSAGE(WM_CHILDMESSAGE, OnMessageChild)
-	ON_EN_CHANGE(IDC_CODE_RICHEDIT, &CMainDlg::OnChangeCodeRichedit)
 	ON_BN_CLICKED(IDC_MANAGER_BUTTON, &CMainDlg::OnManager)
-	
-	ON_EN_SETFOCUS(IDC_CODE_RICHEDIT, &CMainDlg::OnSetfocusCodeRichedit)
-	ON_EN_KILLFOCUS(IDC_CODE_RICHEDIT, &CMainDlg::OnKillfocusCodeRichedit)
 
 	ON_COMMAND(100, &CMainDlg::Complete)
 	ON_COMMAND(101, &CMainDlg::OnError)
@@ -132,23 +151,43 @@ BEGIN_MESSAGE_MAP(CMainDlg, CDialogEx)
 	ON_COMMAND(103, &CMainDlg::OnSaveCode)
 	ON_COMMAND(104, &CMainDlg::OnNewCode)
 	ON_COMMAND(105, &CMainDlg::SetPic)
+	ON_COMMAND(106, &CMainDlg::OnNewLabel)
+
+	ON_COMMAND(IDM_OPEN,   &CMainDlg::OnOpen)
+	ON_COMMAND(IDM_SAVE,   &CMainDlg::OnOK)
+	ON_COMMAND(IDM_NEW ,   &CMainDlg::OnNew)
+	ON_COMMAND(IDM_EDIT,   &CMainDlg::OnEditFunction)
+	ON_COMMAND(IDM_DELETE, &CMainDlg::OnRemove)
+	ON_COMMAND(IDM_DIRECTORY, &CMainDlg::OnDirectory)
 
 	ON_COMMAND(IDM_COPY,   &CMainDlg::OnCopy)
 	ON_COMMAND(IDM_PASTE,  &CMainDlg::OnPaste)
 	ON_COMMAND(IDM_CUT,    &CMainDlg::OnCut)
-	ON_COMMAND(IDM_UNDO,    &CMainDlg::OnUndo)
-	ON_COMMAND(IDM_REDO,    &CMainDlg::OnRedo)
-
-	ON_COMMAND(IDM_IMAGE,  &CMainDlg::OnImage)
-	ON_COMMAND(IDM_CAPTURE,    &CMainDlg::OnScreenCapture)
-
+	ON_COMMAND(IDM_UNDO,   &CMainDlg::OnUndo)
+	ON_COMMAND(IDM_REDO,   &CMainDlg::OnRedo)
 	ON_COMMAND(IDM_CLEAR,  &CMainDlg::OnClearFormat)
+
+	ON_COMMAND(IDM_IMAGE,   &CMainDlg::OnImage)
+	ON_COMMAND(IDM_CAPTURE, &CMainDlg::OnScreenCapture)
+	
 	ON_COMMAND(IDM_FONT,   &CMainDlg::OnFont)
 
+	ON_COMMAND(IDM_PARAGRAPH,   &CMainDlg::OnParagraph)
 	ON_COMMAND(IDM_CENTER, &CMainDlg::OnCenter)
 	ON_COMMAND(IDM_LEFT,   &CMainDlg::OnLeft)
 	ON_COMMAND(IDM_RIGHT,  &CMainDlg::OnRight)
+
+	ON_COMMAND(IDM_NONE,        &CMainDlg::OnNone)
+	ON_COMMAND(IDM_SYMBOL,      &CMainDlg::OnSymbol)
+	ON_COMMAND(IDM_NUMBER,      &CMainDlg::OnNumber)
+	ON_COMMAND(IDM_LOWER_CASE,  &CMainDlg::OnLowerCase)
+	ON_COMMAND(IDM_UPPER_CASE,  &CMainDlg::OnUpperCase)
+	ON_COMMAND(IDM_LOWER_ROME,  &CMainDlg::OnLowerRome)
+	ON_COMMAND(IDM_UPPER_ROME,  &CMainDlg::OnUpperRome)
 	
+	ON_WM_LBUTTONDOWN()
+	ON_WM_LBUTTONUP()
+	ON_WM_MOUSEMOVE()
 END_MESSAGE_MAP()
 
 
@@ -185,39 +224,6 @@ BOOL CMainDlg::OnInitDialog()
     font1.CreateFontIndirect(&logfont);
     m_List.SetFont(&font1);  
     font1.Detach();
-
-	// Edit
-	m_Edit.SubclassDlgItem(IDC_CODE_RICHEDIT, this);
-
-	// 设置 ENM_CHANGE (响应Change事件)
-	//EM_SETEVENTMASK
-	long lMask = m_Edit.GetEventMask();
-	lMask |= ENM_CHANGE;
-	lMask &= ~ENM_PROTECTED;
-	m_Edit.SetEventMask(lMask);
-
-
-	// 格式
-	CHARFORMAT cf;
-	ZeroMemory(&cf, sizeof(CHARFORMAT));
-	cf.cbSize = sizeof(CHARFORMAT);
-	cf.dwMask = CFM_BOLD | CFM_COLOR | CFM_FACE | CFM_ITALIC | CFM_SIZE | CFM_UNDERLINE;
-
-	cf.dwEffects&=~CFE_BOLD;      //设置粗体，取消用cf.dwEffects&=~CFE_BOLD;
-	cf.dwEffects&=~CFE_ITALIC;    //设置斜体，取消用cf.dwEffects&=~CFE_ITALIC;
-	cf.dwEffects&=~CFE_UNDERLINE; //设置斜体，取消用cf.dwEffects&=~CFE_UNDERLINE;
-	cf.crTextColor = RGB(0,0,0);  //设置颜色
-	cf.yHeight = 14 * 14;         //设置高度
-	strcpy_s(cf.szFaceName, 1024 ,_T("宋体"));//设置字体
-	m_Edit.SetDefaultCharFormat(cf);
-
-	::SendMessage(m_Edit, EM_SETLANGOPTIONS, 0, 0);
-
-	// 超链接
-	DWORD mask =::SendMessage(m_Edit.m_hWnd,EM_GETEVENTMASK, 0, 0);  
-    mask = mask | ENM_LINK  | ENM_MOUSEEVENTS | ENM_SCROLLEVENTS |ENM_KEYEVENTS;  
-    ::SendMessage(m_Edit.m_hWnd,EM_SETEVENTMASK, 0, mask);  
-    ::SendMessage(m_Edit.m_hWnd,EM_AUTOURLDETECT, true, 0);
 
 	// 目录检测
 	BOOL IsNew = false;
@@ -305,6 +311,7 @@ BOOL CMainDlg::OnInitDialog()
 
 	// 设置对话框
 	m_Setting->Create(IDD_SETTING_DIALOG, this);
+	m_Setting->ShowWindow(SW_HIDE);
 
 	// 添加文件到目标
 	if (m_hOperate == NULL)
@@ -330,95 +337,10 @@ BOOL CMainDlg::PreTranslateMessage(MSG* pMsg)
 {
 	VMPBEGIN
 
-	//右键菜单
-	if (pMsg->message == WM_RBUTTONDOWN)
-	{
-		// 焦点判定
-		if (GetDlgItem(IDC_CODE_RICHEDIT) == GetFocus())
-		{
-			CMenu popMenu;
-			popMenu.LoadMenu(IDR_FUNCTION_MENU);         //载入菜单
-			CMenu *pPopup = popMenu.GetSubMenu(0);     //获得子菜单指针
-
-			//pPopup->EnableMenuItem(ID_1,MF_BYCOMMAND|MF_ENABLED);                //允许菜单项使用
-			//pPopup->EnableMenuItem(ID_2,MF_BYCOMMAND|MF_DISABLED|MF_GRAYED);     //不允许菜单项使用
-			//CPoint point;
-			//ClientToScreen(&point);            //将客户区坐标转换成屏幕坐标
-
-			POINT pt;
-			::GetCursorPos(&pt);
-
-			//pPopup->CheckMenuItem(ID_MEANING_SHOWDETAIL, m_bShowDetailedMeaning? MF_CHECKED : MF_UNCHECKED); 
-
-			//显示弹出菜单，参数依次为(鼠标在菜单左边|跟踪右键，x，y，this)
-			pPopup->TrackPopupMenu(TPM_LEFTALIGN|TPM_RIGHTBUTTON, pt.x, pt.y, this);               
-			pPopup->Detach();
-			popMenu.DestroyMenu();
-
-			// 返回
-			return true;
-		}
-	}
-
 	// 键盘消息处理
 	UINT  nKeyCode = pMsg->wParam; // virtual key code of the key pressed
 	if (pMsg->message == WM_KEYDOWN)
 	{
-		// Ctrl + C (复制)
-		if ( (nKeyCode == _T('C') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
-		{
-			CString   source = m_Edit.GetSelText();     
-			//put   your   text   in   source   
-			if(OpenClipboard())   
-			{   
-				HGLOBAL   clipbuffer;   
-				char   *   buffer;   
-				EmptyClipboard();   
-				clipbuffer   =   GlobalAlloc(GMEM_DDESHARE,   source.GetLength() +1);
-				buffer   =   (char*)GlobalLock(clipbuffer);
-				strcpy_s(buffer, 65535 ,LPCSTR((CStringA)source));
-				GlobalUnlock(clipbuffer);   
-				SetClipboardData(CF_TEXT,clipbuffer);   
-				CloseClipboard();   
-			}
-
-			return true;
-		}
-
-		// Ctrl + V (粘贴)
-		if ( (nKeyCode == _T('V') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
-		{
-			if( GetPrivateProfileInt(_T("Setting"), _T("Clear"), 0, _T("./Setting.ini")) == 1)
-			{
-				m_Edit.PasteSpecial(CF_TEXT);
-				return true;
-			}
-		}
-
-		// Ctrl + X (剪切)
-		if ( (nKeyCode == _T('X') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
-		{
-			CString   source = m_Edit.GetSelText();     
-			//put   your   text   in   source   
-			if(OpenClipboard())   
-			{   
-				HGLOBAL   clipbuffer;   
-				char   *   buffer;   
-				EmptyClipboard();   
-				clipbuffer   =   GlobalAlloc(GMEM_DDESHARE,   source.GetLength() +1);
-				buffer   =   (char*)GlobalLock(clipbuffer);
-				strcpy_s(buffer, 65535 ,LPCSTR((CStringA)source));
-				GlobalUnlock(clipbuffer);   
-				SetClipboardData(CF_TEXT,clipbuffer);   
-				CloseClipboard();   
-			}
-
-			// 剪切
-			m_Edit.Cut();
-
-			return true;
-		}
-
 		// Ctrl + S (保存方法)
 		if ( (nKeyCode == _T('S') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
 		{
@@ -476,9 +398,44 @@ BOOL CMainDlg::PreTranslateMessage(MSG* pMsg)
 		}
 
 		// Ctrl + P (屏幕截屏)
-		if ( (nKeyCode == _T('P') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
+		if ( (nKeyCode == _T('T') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
 		{
 			OnScreenCapture();
+			return true;
+		}
+
+		// Ctrl + O (打开方法)
+		if ( (nKeyCode == _T('O') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
+		{
+			OnOpen();
+			return true;
+		}
+
+		// Ctrl + P (段落设置)
+		if ( (nKeyCode == _T('P') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
+		{
+			OnParagraph();
+			return true;
+		}
+
+		// Ctrl + <- (字体居左)
+		if ( (nKeyCode == VK_LEFT && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
+		{
+			OnLeft();
+			return true;
+		}
+
+		// Ctrl + -> (字体居右)
+		if ( (nKeyCode == VK_RIGHT && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
+		{
+			OnRight();
+			return true;
+		}
+
+		// Ctrl + M (字体居中)
+		if ( (nKeyCode == _T('M') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
+		{
+			OnCenter();
 			return true;
 		}
 
@@ -567,38 +524,165 @@ void CMainDlg::OnTimer(UINT_PTR nIDEvent)
 }
 
 
-void CMainDlg::OnRichEditLink(NMHDR*in_pNotifyHeader, LRESULT* out_pResult )  
+// 编码助理
+void CMainDlg::ClearScreen()
 {
-	VMPBEGIN
+	HDC hScreenDC;
 
-    ENLINK* l_pENLink =(ENLINK*)in_pNotifyHeader;
-    *out_pResult = 0;
-    switch(l_pENLink->msg)
-    {
-    case WM_LBUTTONDOWN:
-        {
-            CString strURL;
-            CHARRANGE crCharRange ;
-            CRichEditCtrl * pTempEdit;
-            pTempEdit =(CRichEditCtrl*)CRichEditCtrl::FromHandle(l_pENLink->nmhdr.hwndFrom);
-            pTempEdit->GetSel(crCharRange );
-            pTempEdit->SetSel(l_pENLink->chrg);
+	//创建屏幕设备表述表
+	hScreenDC = CreateDC(_T("DISPLAY"), NULL, NULL, NULL);
 
-            strURL = pTempEdit->GetSelText();
-            pTempEdit->SetSel(crCharRange);
-            CWaitCursor l_WaitCursor;
-            ShellExecute( this->GetSafeHwnd(), _T( "open"),strURL, NULL, NULL, SW_SHOWNORMAL );
-            *out_pResult = 1;
-        }
-        break;
-    case WM_LBUTTONUP:
-        {
-            *out_pResult = 1;
-        }
-        break ;
-    }
+	//假如先前窗口不为NULL 则清除在窗口上所绘制的矩形框
+	HDC hMemDC;
 
-	VMPEND
+	//创建与屏幕兼容的内存设备描述表句柄	
+	hMemDC = CreateCompatibleDC(hScreenDC);	
+
+	//将先前保存的窗口区域位图选进设备表述表当中
+	SelectObject(hMemDC, m_rectOfWndBmp);
+
+	//将先前保存的窗口区域位图拷贝到屏幕
+	BitBlt(hScreenDC, m_rectOfWnd.left, m_rectOfWnd.top, m_rectOfWnd.right - m_rectOfWnd.left, 
+			m_rectOfWnd.bottom - m_rectOfWnd.top, hMemDC, 0, 0, SRCCOPY);		
+
+	DeleteObject(m_rectOfWndBmp);
+	m_rectOfWndBmp = NULL;
+	DeleteDC(hMemDC);
+	DeleteDC(hScreenDC);
+}
+
+
+void CMainDlg::SnapWindow(POINT point)
+{
+	ClientToScreen(&point);
+	HDC hScreenDC;
+
+	//得到鼠标位置的窗口句柄
+	m_curWnd = ::WindowFromPoint(point);
+
+	if (m_curWnd == m_preWnd || m_curWnd == m_hWnd || ::GetParent(m_curWnd) == m_curWnd)
+		return;
+
+	if (m_rectOfWndBmp != NULL)
+		ClearScreen();
+
+	//得到当前窗口矩形区域
+	::GetWindowRect(m_curWnd, &m_rectOfWnd);
+	if (m_rectOfWnd.left < 0)
+		m_rectOfWnd.left = 0;
+	if (m_rectOfWnd.top <0)
+		m_rectOfWnd.top = 0;
+
+	//保存当前窗口矩形区域的内容
+	m_rectOfWndBmp = CopyScreenToBitmap(&m_rectOfWnd);
+	m_preWnd = m_curWnd;
+	CBrush brush;
+
+	//创建红色画刷
+	brush.CreateSolidBrush(RGB(255, 0, 0));
+
+	//创建屏幕设备表述表
+	hScreenDC = CreateDC(_T("DISPLAY"), NULL, NULL, NULL);
+
+	//在屏幕窗口位置绘制矩形
+	FrameRect(hScreenDC, &m_rectOfWnd, (HBRUSH)brush.m_hObject);
+	brush.DeleteObject();
+	DeleteDC(hScreenDC);
+}
+
+
+void CMainDlg::OnLButtonDown(UINT nFlags, CPoint point)
+{
+	SetCursor(m_hCursor);
+	SetCapture();
+	m_bSnap = TRUE;
+
+	CDialogEx::OnLButtonDown(nFlags, point);
+}
+
+
+void CMainDlg::OnLButtonUp(UINT nFlags, CPoint point)
+{
+	ReleaseCapture();
+	ClearScreen();
+	OnCodeAssistant();
+
+	m_preWnd = NULL;
+	m_curWnd = NULL;
+	m_bSnap = FALSE;
+
+	CDialogEx::OnLButtonUp(nFlags, point);
+}
+
+
+void CMainDlg::OnMouseMove(UINT nFlags, CPoint point)
+{
+	if (m_bSnap)
+		SnapWindow(point);
+
+	//CDialogEx::OnMouseMove(nFlags, point);
+}
+
+
+void CMainDlg::OnCodeAssistant()
+{
+	// 找到最上层的父窗口
+	HWND m_hWnd = ::GetParent(m_curWnd);
+
+	if(IsWindow(m_hWnd))
+	{
+		//::SendMessage(m_hWnd, WM_CLOSE, 0, 0);
+
+		if(m_hWnd == AfxGetApp()->GetMainWnd()->GetSafeHwnd() || m_hWnd == m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->GetSafeHwnd())
+		{
+			AfxMessageBox(_T("不能选择程序自身作为目标!"));
+			return;
+		}
+
+		// 最小化主窗口
+		ShowWindow(SW_MINIMIZE);
+
+		// 释放资源
+		if(m_pAssisDlg != NULL)
+		{
+			m_pAssisDlg->DestroyWindow();
+			delete m_pAssisDlg;
+		}
+
+		// 将目标窗口作为父对象创建助理对话框
+		m_pAssisDlg = new CAssistantDlg;
+		m_pAssisDlg->Create(IDD_ASSISTANT_DIALOG, FromHandle(m_hWnd));
+		m_pAssisDlg->CenterWindow();
+		m_pAssisDlg->ShowWindow(SW_HIDE);
+		m_pAssisDlg->TargetWnd = m_hWnd;
+		m_pAssisDlg->FilePath = _T("Code\\") + CurClass + _T("\\") + CurType;
+		m_pAssisDlg->OnSetCode();
+	}
+	else
+	{
+		// 不是窗口就返回
+		if(IsWindow(m_curWnd))
+			return;
+
+		if(m_curWnd == AfxGetApp()->GetMainWnd()->GetSafeHwnd() || m_hWnd == m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->GetSafeHwnd())
+		{
+			AfxMessageBox(_T("不能选择程序自身作为目标!"));
+			return;
+		}
+
+		//::SendMessage(m_curWnd, WM_CLOSE, 0, 0);
+
+		// 最小化主窗口
+		ShowWindow(SW_MINIMIZE);
+
+		// 将目标窗口作为父对象创建助理对话框
+		m_pAssisDlg->Create(IDD_ASSISTANT_DIALOG, FromHandle(m_curWnd));
+		m_pAssisDlg->CenterWindow();
+		m_pAssisDlg->ShowWindow(SW_HIDE);
+		m_pAssisDlg->TargetWnd = m_curWnd;
+		m_pAssisDlg->FilePath = _T("Code\\") + CurClass + _T("\\") + CurType;
+		m_pAssisDlg->OnSetCode();
+	}
 }
 
 
@@ -617,6 +701,141 @@ LRESULT CMainDlg::OnMessageChild(WPARAM wParam, LPARAM lParam)
 
 	case 3:
 		OnCheck();
+		break;
+
+	case 4:
+		// 自动保存
+		if (m_hOperate == NULL)
+		{
+			Type = 7;
+			m_hOperate = AfxBeginThread(Operate, this);
+			CloseHandle(m_hOperate->m_hThread);
+		}
+		break;
+
+	case 5:
+		if(!IsEdit)
+		{
+			GetDlgItem(IDC_NEW_BUTTON)->SetWindowText(_T("添加方法"));
+			IsNew = TRUE;
+			IsEdit=FALSE;
+		}
+		else
+			IsEdit=FALSE;
+		break;
+
+	case 6:
+		OnOK();
+		break;
+
+	case 7:
+		OnNew();
+		break;
+
+	case 8:
+		OnDirectory();
+		break;
+
+	case 9:
+		OnFont();
+		break;
+
+	case 10:
+		OnRemove();
+		break;
+
+	case 11:
+		OnClearFormat();
+		break;
+
+	case 12:
+		OnEditFunction();
+		break;
+
+	case 13:
+		OnImage();
+		break;
+
+	case 14:
+		OnScreenCapture();
+		break;
+
+	case 15:
+		OnOpen();
+		break;
+
+	case 16:
+		OnParagraph();
+		break;
+
+	case 17:
+		OnLeft();
+		break;
+
+	case 18:
+		OnRight();
+		break;
+
+	case 19:
+		OnCenter();
+		break;
+
+	case 20:
+		m_Tab.OnRButtonDown(NULL, NULL);
+		break;
+
+	case 21:
+		OnSetLabel();
+		break;
+
+	case 22:
+		m_pAssisDlg->FilePath = _T("Code\\") + CurClass + _T("\\") + CurType;
+		m_pAssisDlg->OnSetCode();
+		break;
+
+	case 23:
+		CString Target = (LPCTSTR)lParam;
+		CString Code = theApp.CodePath = _T("Code\\") + CurClass + _T("\\") + CurType + _T("\\") + Target + _T(".code");
+
+		// 新建标签
+		FileClass = _T("");
+		FileType  = _T("");
+		FileName  = Target;
+		FilePath  = Code;
+		SendMessage(WM_COMMAND, 106);
+
+		// 标记外部方法
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->IsOutFunction = TRUE;
+
+		// 解压缩编码
+		Uncompress(Code, Code.Left(Code.GetLength() -5) + _T(".rtf"));
+
+		// 读取rtf文件
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.StreamInFromResource(Code.Left(Code.GetLength() -5) + _T(".rtf"), _T("SF_RTF"));
+
+		// 删除原文件
+		DeleteFile(Code.Left(Code.GetLength() -5) + _T(".rtf"));
+
+		// 复制内容
+		CString Source;
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetWindowText(Source);
+
+		//put   your   text   in   source
+		if(OpenClipboard())
+		{
+			HGLOBAL   clipbuffer;
+			char   *   buffer;
+			EmptyClipboard();
+			clipbuffer   =   GlobalAlloc(GMEM_DDESHARE,   Source.GetLength() +1);
+			buffer   =   (char*)GlobalLock(clipbuffer);
+			strcpy_s(buffer, 65535 ,LPCSTR((CStringA)Source));
+			GlobalUnlock(clipbuffer);
+			SetClipboardData(CF_TEXT,clipbuffer);
+			CloseClipboard();
+		}
+
+		// 关闭标签
+		m_Tab.OnRButtonDown(NULL, NULL);
 		break;
 	}
 
@@ -679,6 +898,10 @@ UINT CMainDlg::Operate(LPVOID pParam)
 				pWnd->m_Type.GetWindowText(Type);
 				FilePath = _T("Code\\") + Class + _T("\\") + Type;
 
+				// 设置当前属性
+				pWnd->CurClass = Class;
+				pWnd->CurType  = Type;
+
 				IsFind = Finder.FindFile(FilePath + _T("./*.*"));
 				while (IsFind)
 				{
@@ -705,11 +928,24 @@ UINT CMainDlg::Operate(LPVOID pParam)
 					// 参数赋值
 					CString Code = theApp.CodePath;
 
+					// 标签参数
+					CString Path = Code.Left(Code.GetLength() -5);
+					Path.Replace(_T("\\"), _T("/"));
+					CString Name = Path.Right(Path.GetLength() - Path.ReverseFind('/') -1);
+
+					// 新建标签
+					pWnd->FileName = Name;
+					pWnd->FilePath = Code;
+					pWnd->SendMessage(WM_COMMAND, 106);
+
+					// 外部方法标记
+					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->IsOutFunction = TRUE;
+
 					// 解压缩编码
 					pWnd->Uncompress(Code, Code.Left(Code.GetLength() -5) + _T(".rtf"));
 
 					// 读取rtf文件
-					pWnd->m_Edit.StreamInFromResource(Code.Left(Code.GetLength() -5) + _T(".rtf"), _T("SF_RTF"));
+					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.StreamInFromResource(Code.Left(Code.GetLength() -5) + _T(".rtf"), _T("SF_RTF"));
 
 					// 删除原文件
 					DeleteFile(Code.Left(Code.GetLength() -5) + _T(".rtf"));
@@ -718,189 +954,221 @@ UINT CMainDlg::Operate(LPVOID pParam)
 					if(theApp.IsReadOnce)
 						DeleteFile(Code);
 				}
-				else
+
+				// 自动打开
+				else if(GetPrivateProfileInt(_T("Setting"), _T("Open"), 0, _T("./Setting.ini")) == 1)
 				{
-					// 自动打开
-					if( GetPrivateProfileInt(_T("Setting"), _T("Open"), 0, _T("./Setting.ini")) == 1)
+					// 读取最后关闭文件
+					CString Class, Type, Name;
+
+					::GetPrivateProfileString(_T("File"), _T("Class"), _T(""), Class.GetBuffer(MAX_PATH), MAX_PATH, _T("./Setting.ini"));
+					::GetPrivateProfileString(_T("File"), _T("Type"),  _T(""), Type.GetBuffer(MAX_PATH),  MAX_PATH, _T("./Setting.ini"));
+					::GetPrivateProfileString(_T("File"), _T("Name"),  _T(""), Name.GetBuffer(MAX_PATH),  MAX_PATH, _T("./Setting.ini"));
+
+					Class.ReleaseBuffer();
+					Type.ReleaseBuffer();
+					Name.ReleaseBuffer();
+
+					// 自动打开文件
+					int nIndex = pWnd->m_Class.FindStringExact(0, Class);
+					if(nIndex != CB_ERR)
 					{
-						// 读取最后关闭文件
-						CString Class, Type, Name;
+						pWnd->m_Class.SetCurSel(nIndex);
 
-						::GetPrivateProfileString(_T("File"), _T("Class"), _T(""), Class.GetBuffer(MAX_PATH), MAX_PATH, _T("./Setting.ini"));
-						::GetPrivateProfileString(_T("File"), _T("Type"),  _T(""), Type.GetBuffer(MAX_PATH),  MAX_PATH, _T("./Setting.ini"));
-						::GetPrivateProfileString(_T("File"), _T("Name"),  _T(""), Name.GetBuffer(MAX_PATH),  MAX_PATH, _T("./Setting.ini"));
+						// 清空ComboBox
+						pWnd->m_Type.ResetContent();
 
-						Class.ReleaseBuffer();
-						Type.ReleaseBuffer();
-						Name.ReleaseBuffer();
+						CString Class;
+						pWnd->m_Class.GetWindowText(Class);
+						CString FilePath = _T("Code\\") + Class;
 
-						// 自动打开文件
-						int nIndex = pWnd->m_Class.FindStringExact(0, Class);
-						if(nIndex != CB_ERR)
+						CFileFind Finder;
+						BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+						while (IsFind)
 						{
-							pWnd->m_Class.SetCurSel(nIndex);
+							IsFind = Finder.FindNextFile();
 
-							// 清空ComboBox
-							pWnd->m_Type.ResetContent();
+							if (Finder.IsDots())
+								continue;
+							if (Finder.IsDirectory())
+								pWnd->m_Type.AddString(Finder.GetFileName());
+						}
 
-							CString Class;
-							pWnd->m_Class.GetWindowText(Class);
-							CString FilePath = _T("Code\\") + Class;
+						// 设置ComboBox
+						pWnd->m_Type.SetCurSel(0);
+					}
+					else
+					{
+						// 错误消息提示
+						pWnd->Error = _T("无法读取配置文件中 File 下的 Class 数据, 自动打开失败。");
+						pWnd->PostMessage(WM_COMMAND, 101);
 
-							CFileFind Finder;
-							BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
-							while (IsFind)
+						// 对象置为空
+						pWnd->m_hOperate = NULL;
+						return FALSE;
+					}
+
+					nIndex = pWnd->m_Type.FindStringExact(0, Type);
+					if(nIndex != CB_ERR)
+					{
+						pWnd->m_Type.SetCurSel(nIndex);
+
+						// 清空列表
+						pWnd->m_List.DeleteAllItems();
+
+						CString Class, Type;
+						pWnd->m_Class.GetWindowText(Class);
+						pWnd->m_Type.GetWindowText(Type);
+						CString FilePath = _T("Code\\") + Class + _T("\\") + Type;
+
+						CFileFind Finder;
+						BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+						while (IsFind)
+						{
+							IsFind = Finder.FindNextFile();
+
+							if (Finder.IsDots())
+								continue;
+							if (Finder.IsDirectory())
+								continue;
+							else
 							{
-								IsFind = Finder.FindNextFile();
-
-								if (Finder.IsDots())
-									continue;
-								if (Finder.IsDirectory())
-									pWnd->m_Type.AddString(Finder.GetFileName());
-							}
-
-							// 设置ComboBox
-							pWnd->m_Type.SetCurSel(0);
-						}
-						else
-						{
-							// 错误消息提示
-							pWnd->Error = _T("无法读取配置文件中 File 下的 Class 数据, 自动打开失败。");
-							pWnd->PostMessage(WM_COMMAND, 101);
-
-							// 对象置为空
-							pWnd->m_hOperate = NULL;
-							return FALSE;
-						}
-
-						nIndex = pWnd->m_Type.FindStringExact(0, Type);
-						if(nIndex != CB_ERR)
-						{
-							pWnd->m_Type.SetCurSel(nIndex);
-							// 清空编辑框
-							pWnd->m_Edit.SetWindowText(_T(""));
-
-							// 清空列表
-							pWnd->m_List.DeleteAllItems();
-
-							CString Class, Type;
-							pWnd->m_Class.GetWindowText(Class);
-							pWnd->m_Type.GetWindowText(Type);
-							CString FilePath = _T("Code\\") + Class + _T("\\") + Type;
-
-							CFileFind Finder;
-							BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
-							while (IsFind)
-							{
-								IsFind = Finder.FindNextFile();
-
-								if (Finder.IsDots())
-									continue;
-								if (Finder.IsDirectory())
-									continue;
-								else
-								{
-									CString Name = Finder.GetFileName();
-									pWnd->m_List.AddItem(Name.Left(Name.GetLength() - 5));
-								}
-							}
-						}
-						else
-						{
-							// 错误消息提示
-							pWnd->Error = _T("无法读取配置文件中 File 下的 Type 数据, 自动打开失败。");
-							pWnd->PostMessage(WM_COMMAND, 101);
-
-							// 对象置为空
-							pWnd->m_hOperate = NULL;
-							return FALSE;
-						}
-
-						if(Name.IsEmpty())
-						{
-							// 错误消息提示
-							pWnd->Error = _T("无法读取配置文件中 File 下的 Name 数据, 自动打开失败。");
-							pWnd->PostMessage(WM_COMMAND, 101);
-
-							// 对象置为空
-							pWnd->m_hOperate = NULL;
-							return FALSE;
-						}
-
-						int Count = pWnd->m_List.GetItemCount();
-						for(int i=0; i<Count; i++)
-						{
-							CString Function = pWnd->m_List.GetItemText(i, 0);
-
-							if(Function == Name)
-							{
-								//设置高亮显示  
-								pWnd->m_List.SetFocus();//设置焦点  
-								pWnd->m_List.SetItemState(i, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);//设置状态  
-								pWnd->m_List.EnsureVisible(i, FALSE);//设置当前视图可见
-								goto read;
-								break;
+								CString Name = Finder.GetFileName();
+								pWnd->m_List.AddItem(Name.Left(Name.GetLength() - 5));
 							}
 						}
 					}
-				}
+					else
+					{
+						// 错误消息提示
+						pWnd->Error = _T("无法读取配置文件中 File 下的 Type 数据, 自动打开失败。");
+						pWnd->PostMessage(WM_COMMAND, 101);
 
+						// 对象置为空
+						pWnd->m_hOperate = NULL;
+						return FALSE;
+					}
+
+					if(Name.IsEmpty())
+					{
+						// 错误消息提示
+						pWnd->Error = _T("无法读取配置文件中 File 下的 Name 数据, 自动打开失败。");
+						pWnd->PostMessage(WM_COMMAND, 101);
+
+						// 对象置为空
+						pWnd->m_hOperate = NULL;
+						return FALSE;
+					}
+
+					int Count = pWnd->m_List.GetItemCount();
+					for(int i=0; i<Count; i++)
+					{
+						CString Function = pWnd->m_List.GetItemText(i, 0);
+
+						if(Function == Name)
+						{
+							//设置高亮显示  
+							pWnd->m_List.SetFocus();//设置焦点  
+							pWnd->m_List.SetItemState(i, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);//设置状态  
+							pWnd->m_List.EnsureVisible(i, FALSE);//设置当前视图可见
+							goto read;
+							break;
+						}
+					}
+				}
+				else
+				{   // 新建标签
+					pWnd->FileClass = _T("");
+					pWnd->FileType  = _T("");;
+					pWnd->FileName  = _T("新方法");
+					pWnd->FilePath  = _T("");
+					pWnd->SendMessage(WM_COMMAND, 106);
+                }
 			}break;
 
 		case 1:
 			{
 read:
+				CString Class, Type;
+				pWnd->m_Class.GetWindowText(Class);
+				pWnd->m_Type.GetWindowText(Type);
+
+				CString FilePath = _T("Code\\") + Class + _T("\\") + Type + _T("\\");
 				int i = pWnd->m_List.GetNextItem(-1, LVIS_SELECTED);
 				CString Name = pWnd->m_List.GetItemText(i, 0);
+
+				// 更改按钮文本
+				if(pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FileName != _T("新方法"))
+				{
+					pWnd->IsEdit = TRUE;
+					pWnd->GetDlgItem(IDC_NEW_BUTTON)->SetWindowText(_T("编辑方法"));
+
+					// 编辑标记
+					pWnd->IsNew = FALSE;
+				}
+
+				// 目标
+				CString Target = FilePath + Name;
+
+				// 判断是否已打开
+				for(int i=0; i<(int)pWnd->m_Tab.m_DocumentTab.size(); i++)
+				{
+					// 标签 Path
+					CString Path = pWnd->m_Tab.m_DocumentTab.at(i)->FilePath;
+					CString Name = pWnd->m_Tab.m_DocumentTab.at(i)->FileName;
+
+					// 跳到已打开的标签
+					if(Target == Path + Name)
+					{
+						pWnd->m_Tab.SetCurSel(i);
+						pWnd->m_Tab.OnLButtonDown(NULL, NULL);
+
+						// 对象置为空
+						pWnd->m_hOperate = NULL;
+						return TRUE;
+					}
+				}
+
 				if (!Name.IsEmpty() && i != -1)
 				{
-					CString Class, Type;
-					pWnd->m_Class.GetWindowText(Class);
-					pWnd->m_Type.GetWindowText(Type);
-					CString FilePath = _T("Code\\") + Class + _T("\\") + Type + _T("\\");
-
 					// 显示消息提示
 					//AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
 
+					// 新建标签
+					pWnd->FileClass = Class;
+					pWnd->FileType  = Type;
+					pWnd->FileName  = Name;
+					pWnd->FilePath  = FilePath;
+					pWnd->SendMessage(WM_COMMAND, 106);
+
 					// 解压缩编码
-					pWnd->Uncompress(FilePath + Name + _T(".code"), FilePath + Name + _T(".rtf"));
+					pWnd->Uncompress(Target + _T(".code"), Target + _T(".rtf"));
 
 					// 读取rtf文件
-					pWnd->m_Edit.StreamInFromResource(FilePath + Name + _T(".rtf"), _T("SF_RTF"));
+					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.StreamInFromResource(Target + _T(".rtf"), _T("SF_RTF"));
 
 					// 删除原文件
 					DeleteFile(FilePath + Name + _T(".rtf"));
 
 					// 操作完成标志
 					//theApp.IsFinished = true;
-
-					CString Text;
-					pWnd->GetDlgItem(IDC_NEW_BUTTON)->GetWindowText(Text);
-					if(Text != _T("编辑方法"))
-					{
-						// 更改按钮文本
-						pWnd->GetDlgItem(IDC_NEW_BUTTON)->SetWindowText(_T("编辑方法"));
-					}
-
-					// 新方法标志
-					pWnd->IsNew = FALSE;
-
-					// 保存标志
-					//pWnd->IsSave = FALSE;
-
-					// 发送消息
-					//Sleep(400);
-					//pWnd->SendMessage(WM_COMMAND, 103);
 				}
 			}break;
 
 		case 2:
 			{
+				// 新建标签
+				pWnd->FileClass = _T("");
+				pWnd->FileType  = _T("");;
+				pWnd->FileName  = _T("使用说明");
+				pWnd->FilePath  = _T("使用说明.code");
+				pWnd->SendMessage(WM_COMMAND, 106);
+
 				// 解压缩编码
 				pWnd->Uncompress(_T("使用说明.code"), _T("使用说明.rtf"));
 
 				// 显示用户使用说明
-				pWnd->m_Edit.StreamInFromResource(_T("使用说明.rtf"), _T("SF_RTF"));
+				pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.StreamInFromResource(_T("使用说明.rtf"), _T("SF_RTF"));
 
 				// 删除原文件
 				DeleteFile(_T("使用说明.rtf"));
@@ -914,6 +1182,9 @@ read:
 				CString Class;
 				pWnd->m_Class.GetWindowText(Class);
 				CString FilePath = _T("Code\\") + Class;
+
+				// 设置当前数据
+				pWnd->CurClass = Class;
 
 				CFileFind Finder;
 				BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
@@ -934,7 +1205,7 @@ read:
 		case 4:
 			{
 				// 清空编辑框
-				pWnd->m_Edit.SetWindowText(_T(""));
+				//pWnd->m_Edit.SetWindowText(_T(""));
 
 				// 清空列表
 				pWnd->m_List.DeleteAllItems();
@@ -962,7 +1233,7 @@ read:
 		case 5:
 			{
 				// 清空编辑框
-				pWnd->m_Edit.SetWindowText(_T(""));
+				//pWnd->m_Edit.SetWindowText(_T(""));
 
 				// 清空列表
 				pWnd->m_List.DeleteAllItems();
@@ -971,6 +1242,10 @@ read:
 				pWnd->m_Class.GetWindowText(Class);
 				pWnd->m_Type.GetWindowText(Type);
 				CString FilePath = _T("Code\\") + Class + _T("\\") + Type;
+
+				// 设置当前数据
+				pWnd->CurClass = Class;
+				pWnd->CurType = Type;
 
 				CFileFind Finder;
 				BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
@@ -993,7 +1268,7 @@ read:
 		case 6:
 			{
 				// 清空编辑框
-				pWnd->m_Edit.SetWindowText(_T(""));
+				//pWnd->m_Edit.SetWindowText(_T(""));
 
 				// 清空列表
 				pWnd->m_List.DeleteAllItems();
@@ -1025,46 +1300,59 @@ read:
 				// 若设置了自动保存
 				if ( GetPrivateProfileInt(_T("Setting"), _T("Save"), 0, _T("./Setting.ini")) == 1)
 				{
-					CString Path = pWnd->m_List.GetItemText(pWnd->m_List.GetNextItem(-1, LVIS_SELECTED), 0);
-					CString Class, Type, Text;
-					pWnd->m_Class.GetWindowText(Class);
-					pWnd->m_Type.GetWindowText(Type);
-					pWnd->m_Edit.GetWindowText(Text);
+					CString FilePath = pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FilePath, TargetFile = FilePath.Left(FilePath.GetLength() -5);
 
-					// 如果分类信息不完整
-					if(Class.IsEmpty() || Type.IsEmpty())
+					// 外部文件
+					if( pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->IsOutFunction && !FilePath.IsEmpty())
 					{
-						// 对象置为空
-						pWnd->m_hOperate = NULL;
-						return false;
+						pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.StreamOutToFile(TargetFile + _T(".rtf"), _T("SF_RTF"));
+
+						// 压缩编码
+						pWnd->Compress(TargetFile + _T(".rtf"), TargetFile + _T(".code"));
+
+						// 删除原文件
+						DeleteFile(TargetFile + _T(".rtf"));
 					}
-					else
+					else if(!FilePath.IsEmpty())
 					{
-						// 已有源码
-						if(!Path.IsEmpty() && !Text.IsEmpty() && pWnd->m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
+						CString Class = pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FileClass, Type = pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FileType, Text;
+						pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.GetWindowText(Text);
+
+						// 如果分类信息不完整
+						if(Class.IsEmpty() || Type.IsEmpty())
 						{
-							// 目录检测
-							DWORD DirPath = GetFileAttributes(_T("Code\\") + Class);
-							if (DirPath == 0xFFFFFFFF)     //文件夹不存在
+							// 对象置为空
+							pWnd->m_hOperate = NULL;
+							return false;
+						}
+						else
+						{
+							// 已有源码
+							if(!Text.IsEmpty())
 							{
-								CreateDirectory(_T("Code\\") + Class, NULL);
+								// 目录检测
+								DWORD DirPath = GetFileAttributes(_T("Code\\") + Class);
+								if (DirPath == 0xFFFFFFFF)     //文件夹不存在
+								{
+									CreateDirectory(_T("Code\\") + Class, NULL);
+								}
+
+								DirPath = GetFileAttributes(_T("Code\\") + Class + _T("\\") + Type);
+								if (DirPath == 0xFFFFFFFF)     //文件夹不存在
+								{
+									CreateDirectory(_T("Code\\") + Class + _T("\\") + Type, NULL);
+								}
+
+								// 自动保存
+								CString Target = pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FilePath + pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FileName;
+								pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.StreamOutToFile(Target + _T(".rtf"), _T("SF_RTF"));
+
+								// 压缩编码
+								pWnd->Compress(Target + _T(".rtf"), Target + _T(".code"));
+
+								// 删除原文件
+								DeleteFile(Target + _T(".rtf"));
 							}
-
-							DirPath = GetFileAttributes(_T("Code\\") + Class + _T("\\") + Type);
-							if (DirPath == 0xFFFFFFFF)     //文件夹不存在
-							{
-								CreateDirectory(_T("Code\\") + Class + _T("\\") + Type, NULL);
-							}
-
-							// 自动保存
-							CString File = _T("Code\\") + Class + _T("\\") + Type + _T("\\");
-							pWnd->m_Edit.StreamOutToFile(File + Path + _T(".rtf"), _T("SF_RTF"));
-
-							// 压缩编码
-							pWnd->Compress(File + Path + _T(".rtf"), File + Path + _T(".code"));
-
-							// 删除原文件
-							DeleteFile(File + Path + _T(".rtf"));
 						}
 					}
 				}
@@ -1098,38 +1386,38 @@ read:
 					ShellExecuteEx(&ShExecInfo);
 
 					// 最小化主窗口
-					//pWnd->ShowWindow(SW_MINIMIZE);
+					pWnd->ShowWindow(SW_MINIMIZE);
 
 					// 显示消息提示
-					AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
+					//AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
 
 					AfxGetApp()->BeginWaitCursor();
 					WaitForSingleObject(ShExecInfo.hProcess,INFINITE);
 					AfxGetApp()->EndWaitCursor();
 					
 					// 还原主窗口
-					//pWnd->ShowWindow(SW_RESTORE);
+					pWnd->ShowWindow(SW_RESTORE);
 
 					// 删除原文件
 					DeleteFile(FilePath + Name + _T(".rtf"));
 
 					// 操作完成标志
-					theApp.IsFinished = true;
+					//theApp.IsFinished = true;
 				}
 			}break;
 
 		case 9:
 			{
-				CString Path = pWnd->m_List.GetItemText(pWnd->m_List.GetNextItem(-1, LVIS_SELECTED), 0);
+				CString FilePath = pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FilePath, TargetFile = FilePath.Left(FilePath.GetLength() -5);
 
 				// 外部文件
-				if( !theApp.CodePath.IsEmpty() && Path.IsEmpty() && pWnd->m_List.GetNextItem(-1, LVIS_SELECTED) == -1  )
+				if( pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->IsOutFunction && !FilePath.IsEmpty())
 				{
 					// 显示消息提示
 					AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
 
-					CString TargetFile = theApp.CodePath.Left(theApp.CodePath.GetLength() -5);
-					pWnd->m_Edit.StreamOutToFile(TargetFile + _T(".rtf"), _T("SF_RTF"));
+					CString TargetFile = pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FilePath.Left(pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FilePath.GetLength() -5);
+					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.StreamOutToFile(TargetFile + _T(".rtf"), _T("SF_RTF"));
 
 					// 压缩编码
 					pWnd->Compress(TargetFile + _T(".rtf"), TargetFile + _T(".code"));
@@ -1140,17 +1428,12 @@ read:
 					// 操作完成标志
 					theApp.IsFinished = true;
 
-					// 保存标志
-					pWnd->IsSave = TRUE;
-
 					// 消息提示
 					pWnd->PostMessage(WM_COMMAND, 103);
 				}
-				else
+				else if(!FilePath.IsEmpty())
 				{
-					CString Class, Type;
-					pWnd->m_Class.GetWindowText(Class);
-					pWnd->m_Type.GetWindowText(Type);
+					CString Class = pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FileClass, Type = pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FileType;
 
 					if(Class.IsEmpty())
 					{
@@ -1186,41 +1469,58 @@ read:
 						CreateDirectory(_T("Code\\") + Class + _T("\\") + Type, NULL);
 					}
 
+					// 显示消息提示
+					AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
+
+					CString TargetFile = pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FilePath + pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FileName;
+					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.StreamOutToFile(TargetFile + _T(".rtf"), _T("SF_RTF"));
+
+					// 压缩编码
+					pWnd->Compress(TargetFile + _T(".rtf"), TargetFile + _T(".code"));
+
+					// 删除原文件
+					DeleteFile(TargetFile + _T(".rtf"));
+
+					// 操作完成标志
+					theApp.IsFinished = true;
+
+					// 消息提示
+					pWnd->PostMessage(WM_COMMAND, 103);
+
 					// 判断是否是新方法
-					CString File = _T("Code\\") + Class + _T("\\") + Type + _T("\\");
-					if(!Path.IsEmpty() && pWnd->m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
-					{
-						// 显示消息提示
-						AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
+					//if(!Path.IsEmpty() && pWnd->m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
+					//{
+					//	// 显示消息提示
+					//	AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
 
-						CString TargetFile = File + Path;
-						pWnd->m_Edit.StreamOutToFile(TargetFile + _T(".rtf"), _T("SF_RTF"));
+					//	CString TargetFile = pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FilePath + pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FileName;
+					//	pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.StreamOutToFile(TargetFile + _T(".rtf"), _T("SF_RTF"));
 
-						// 压缩编码
-						pWnd->Compress(TargetFile + _T(".rtf"), TargetFile + _T(".code"));
+					//	// 压缩编码
+					//	pWnd->Compress(TargetFile + _T(".rtf"), TargetFile + _T(".code"));
 
-						// 删除原文件
-						DeleteFile(TargetFile + _T(".rtf"));
+					//	// 删除原文件
+					//	DeleteFile(TargetFile + _T(".rtf"));
 
-						// 操作完成标志
-						theApp.IsFinished = true;
+					//	// 操作完成标志
+					//	theApp.IsFinished = true;
 
-						// 保存标志
-						pWnd->IsSave = TRUE;
-
-						// 消息提示
-						pWnd->PostMessage(WM_COMMAND, 103);
-					}
-					else
-					{
-						// 询问是否新建
-						pWnd->PostMessage(WM_COMMAND, 104);
-					}
+					//	// 消息提示
+					//	pWnd->PostMessage(WM_COMMAND, 103);
+					//}
+					//else
+					//{
+					//	// 询问是否新建
+					//	pWnd->PostMessage(WM_COMMAND, 104);
+					//}
 				}
+				else
+					goto New;
 			}break;
 
 		case 10:
 			{
+				New:
 				CString Class, Type;
 				pWnd->m_Class.GetWindowText(Class);
 				pWnd->m_Type.GetWindowText(Type);
@@ -1280,7 +1580,7 @@ read:
 
 					CString strFile = FileDlg.GetPathName(); //文件不存在就自动创建
 					CString Target  = strFile.Left(strFile.GetLength() -5);
-					pWnd->m_Edit.StreamOutToFile(Target + _T(".rtf"), _T("SF_RTF"));
+					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.StreamOutToFile(Target + _T(".rtf"), _T("SF_RTF"));
 
 					// 压缩编码
 					pWnd->Compress(Target + _T(".rtf"), Target + _T(".code"));
@@ -1294,6 +1594,18 @@ read:
 					// 添加 & 标记
 					BOOL  isFind = FALSE;
 					CString Name = FileDlg.GetFileName();
+
+					// 更改标签属性
+					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FileClass = Class;
+					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FileType  = Type;
+					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FilePath  = File;
+					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->FileName  = Name.Left(Name.GetLength() - 5);
+
+					pWnd->m_Tab.SetPageTitle(pWnd->m_Tab.m_selTabID, (TCHAR*)(LPCTSTR)Name.Left(Name.GetLength() - 5));
+					pWnd->m_Tab.Invalidate();
+
+					// 取消选择
+					pWnd->m_List.SetItemState(pWnd->m_List.GetNextItem(-1, LVIS_SELECTED), 0, LVIS_SELECTED | LVIS_FOCUSED);
 
 					int Count = pWnd->m_List.GetItemCount();
 					for(int i=0; i<Count; i++)
@@ -1324,9 +1636,6 @@ read:
 						pWnd->m_List.EnsureVisible(i, FALSE);//设置当前视图可见 
 					}
 
-					// 保存标志
-					pWnd->IsSave = TRUE;
-
 					// 消息提示
 					pWnd->PostMessage(WM_COMMAND, 103);
 				}
@@ -1338,7 +1647,7 @@ read:
 				POSITION pos;
 
 				// 清空编辑框
-				pWnd->m_Edit.SetWindowText(_T(""));
+				pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.SetWindowText(_T(""));
 
 				// 显示消息提示
 				AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
@@ -1350,20 +1659,34 @@ read:
 					nItem = pWnd->m_List.GetNextSelectedItem(pos);
 					if (nItem >= 0 && pWnd->m_List.GetSelectedCount() > 0)
 					{
-						CString Path = pWnd->m_List.GetItemText(nItem, 0);
+						CString Name = pWnd->m_List.GetItemText(nItem, 0);
 
 						CString Class, Type;
 						pWnd->m_Class.GetWindowText(Class);
 						pWnd->m_Type.GetWindowText(Type);
 
 						// 删除文件
-						DeleteFile(_T("Code\\") + Class + _T("\\") + Type + _T("\\") + Path + _T(".code"));
+						DeleteFile(_T("Code\\") + Class + _T("\\") + Type + _T("\\") + Name + _T(".code"));
 
 						// 移除列表
 						pWnd->m_List.DeleteItem(nItem);
 
 						// 删除依赖
-						pWnd->DeleteDirectory(_T("File\\") + Class + _T("\\") + Type + _T("\\") + Path);
+						pWnd->DeleteDirectory(_T("File\\") + Class + _T("\\") + Type + _T("\\") + Name);
+
+						// 判断是否已打开
+						for(int i=0; i<(int)pWnd->m_Tab.m_DocumentTab.size(); i++)
+						{
+							// 标签 Path
+							CString Code = _T("Code\\") + Class + _T("\\") + Type + _T("\\") + Name, Target = pWnd->m_Tab.m_DocumentTab.at(i)->FilePath + pWnd->m_Tab.m_DocumentTab.at(i)->FileName;
+
+							// 关闭已打开的标签
+							if( Code == Target )
+							{
+								pWnd->m_Tab.SetCurSel(i);
+								pWnd->m_Tab.OnRButtonDown(NULL, NULL);
+							}
+						}
 
 						// 判断是否为空
 						if( pWnd->CountFile(_T("Code\\") + Class + _T("\\") + Type + _T("\\")) <= 0 )
@@ -1421,7 +1744,7 @@ read:
 							// 内容变更消息
 
 							// 清空编辑框
-							pWnd->m_Edit.SetWindowText(_T(""));
+							pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.SetWindowText(_T(""));
 
 							// 清空ComboBox
 							pWnd->m_Type.ResetContent();
@@ -1487,15 +1810,78 @@ read:
 
 					// 插入图片
 					pWnd->PostMessage(WM_COMMAND, 105);
-
-					//CImage image;                      //定义一个CBitmap类  
-					//image.Load(m_strFile);             //filename为要加载的文件地址  
-					//HBITMAP hBitmap = image.Detach();  //返回被分离的图片的句柄  
-					//CBitmap bmp;                     // 定义一个bitmap  
-					//bmp.Attach(hBitmap);             //进行句柄的附加  
 				}
 
 				pWnd->m_pPicObj = NULL;
+			}break;
+
+			case 13:
+			{
+				CString sFilter = _T("Code Files(*.code)|*.code||");
+				CFileDialog dlg(TRUE, 0, 0, OFN_NOCHANGEDIR | OFN_ENABLEHOOK | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_ENABLESIZING| OFN_FILEMUSTEXIST ,(LPCTSTR)sFilter, pWnd);
+				if(dlg.DoModal() == IDOK)
+				{
+					// 取消选择
+					pWnd->m_List.SetItemState(pWnd->m_List.GetNextItem(-1, LVIS_SELECTED), 0, LVIS_SELECTED | LVIS_FOCUSED);
+
+					// 参数赋值
+					CString Code = theApp.CodePath = dlg.GetPathName();
+
+					// 新建标签
+					CString Name    = Code.Right(Code.GetLength() - Code.ReverseFind('\\') -1);
+					        Name    = Name.Left(Name.GetLength() -5);
+
+					pWnd->FileClass = _T("");
+					pWnd->FileType  = _T("");
+					pWnd->FileName  = Name;
+					pWnd->FilePath  = Code;
+					pWnd->SendMessage(WM_COMMAND, 106);
+
+					// 标记外部方法
+					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->IsOutFunction = TRUE;
+
+					// 显示消息提示
+					//AfxBeginThread(CProjectDlg::Notify, _T("正在执行操作..."));
+
+					// 解压缩编码
+					pWnd->Uncompress(Code, Code.Left(Code.GetLength() -5) + _T(".rtf"));
+
+					// 读取rtf文件
+					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.StreamInFromResource(Code.Left(Code.GetLength() -5) + _T(".rtf"), _T("SF_RTF"));
+
+					// 删除原文件
+					DeleteFile(Code.Left(Code.GetLength() -5) + _T(".rtf"));
+
+					// 操作完成标志
+					//theApp.IsFinished = true;
+				}
+			}break;
+
+			case 14:
+			{
+				try
+				{
+					// 隐藏主窗口
+					pWnd->ShowWindow(SW_HIDE);
+
+					// 显示工具
+					CScreenToolDlg dlg;
+					INT_PTR nResponse = dlg.DoModal();
+
+					// 显示主窗口
+					pWnd->ShowWindow(SW_SHOW);
+
+					// 窗口置顶
+					pWnd->SetForegroundWindow();
+
+					// 粘贴截屏
+					if(nResponse == IDOK)
+						pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.Paste();
+				}
+				catch(...)
+				{
+					AfxMessageBox(_T("发生了未知异常，位于第14号线程!"));
+				}
 			}break;
 		}
 	}
@@ -1826,8 +2212,7 @@ void CMainDlg::OnCheck()
 void CMainDlg::OnSaveCode()
 {
 	// 消息提示
-	if(IsSave)
-		MessageBox(_T("方法已保存成功!"), _T("编程助理"), MB_ICONINFORMATION);
+	MessageBox(_T("方法已保存成功!"), _T("编程助理"), MB_ICONINFORMATION);
 
 	//设置高亮显示  
 	m_List.SetFocus();//设置焦点  
@@ -1841,14 +2226,19 @@ void CMainDlg::OnNewCode()
 	// 询问是否新建
 	if( MessageBox(_T("没有选中的方法, 是否添加为新方法?"), _T("是否添加方法"), MB_ICONQUESTION | MB_YESNO) == IDYES )
 	{
-		OnNew();
+		// 新建方法
+		if (m_hOperate == NULL)
+		{
+			this->Type = 10;
+			m_hOperate = AfxBeginThread(Operate, this);
+		}
 	}
 }
 
 
 void CMainDlg::OnCopy()
 {
-	CString   source = m_Edit.GetSelText();     
+	CString   source = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetSelText();     
 	//put   your   text   in   source   
 	if(OpenClipboard())   
 	{   
@@ -1868,15 +2258,15 @@ void CMainDlg::OnCopy()
 void CMainDlg::OnPaste()
 {
 	if( GetPrivateProfileInt(_T("Setting"), _T("Clear"), 0, _T("./Setting.ini")) == 1)
-		m_Edit.PasteSpecial(CF_TEXT);
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.PasteSpecial(CF_TEXT);
 	else
-		m_Edit.Paste();
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.Paste();
 }
 
 
 void CMainDlg::OnCut()
 {
-	CString   source = m_Edit.GetSelText();     
+	CString   source = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetSelText();     
 	//put   your   text   in   source   
 	if(OpenClipboard())   
 	{   
@@ -1892,35 +2282,32 @@ void CMainDlg::OnCut()
 	}
 
 	// 剪切
-	m_Edit.Cut();
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.Cut();
 }
 
 
 void CMainDlg::OnUndo()
 {
-	m_Edit.Undo();
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.Undo();
 }
 
 
 void CMainDlg::OnRedo()
 {
-	m_Edit.Redo();
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.Redo();
 }
 
 
 void CMainDlg::OnLeft()
 {
-	CString source = m_Edit.GetSelText();
+	CString source = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetSelText();
 	if(!source.IsEmpty())
 	{
-		CHARFORMAT cf;
-		m_Edit.GetSelectionCharFormat(cf);
-
 		PARAFORMAT pf;
-		m_Edit.GetParaFormat(pf);
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetParaFormat(pf);
 		pf.dwMask = PFM_ALIGNMENT;
 		pf.wAlignment = PFA_LEFT; //PFA_CENTER or PFA_RIGHT
-		m_Edit.SetParaFormat(pf);
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetParaFormat(pf);
 	}
 	else
 	{
@@ -1931,17 +2318,14 @@ void CMainDlg::OnLeft()
 
 void CMainDlg::OnRight()
 {
-	CString source = m_Edit.GetSelText();
+	CString source = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetSelText();
 	if(!source.IsEmpty())
 	{
-		CHARFORMAT cf;
-		m_Edit.GetSelectionCharFormat(cf);
-
 		PARAFORMAT pf;
-		m_Edit.GetParaFormat(pf);
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetParaFormat(pf);
 		pf.dwMask = PFM_ALIGNMENT;
 		pf.wAlignment = PFA_RIGHT; //PFA_CENTER or PFA_RIGHT
-		m_Edit.SetParaFormat(pf);
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetParaFormat(pf);
 	}
 	else
 	{
@@ -1952,17 +2336,14 @@ void CMainDlg::OnRight()
 
 void CMainDlg::OnCenter()
 {
-	CString source = m_Edit.GetSelText();
+	CString source = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetSelText();
 	if(!source.IsEmpty())
 	{
-		CHARFORMAT cf;
-		m_Edit.GetSelectionCharFormat(cf);
-
 		PARAFORMAT pf;
-		m_Edit.GetParaFormat(pf);
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetParaFormat(pf);
 		pf.dwMask = PFM_ALIGNMENT;
 		pf.wAlignment = PFA_CENTER; //PFA_CENTER or PFA_RIGHT
-		m_Edit.SetParaFormat(pf);
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetParaFormat(pf);
 	}
 	else
 	{
@@ -1973,8 +2354,10 @@ void CMainDlg::OnCenter()
 
 BOOL CMainDlg::GetPic(REOBJECT FAR* pObject)
 {
-	CRichEditCtrl* pTextIn1=(CRichEditCtrl*)GetDlgItem(IDC_CODE_RICHEDIT);
-	IRichEditOle* pITextIn1=pTextIn1->GetIRichEditOle();
+	//CRichEditCtrl* pTextIn1 = (CRichEditCtrl*)GetDlgItem(IDC_CODE_RICHEDIT);
+	//CRichEditCtrl* pTextIn1 = (CRichEditCtrl*)m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->GetDlgItem(IDC_CODE_RICHEDIT);
+	CRichEditCtrl* pTextIn1 = (CRichEditCtrl*)m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->GetDlgItem(IDC_CODE_RICHEDIT);
+	IRichEditOle* pITextIn1 = pTextIn1->GetIRichEditOle();
 	LONG lCount=pITextIn1->GetObjectCount();
 
 	LRESULT lRet;
@@ -1997,7 +2380,10 @@ BOOL CMainDlg::GetPic(REOBJECT FAR* pObject)
 
 void CMainDlg::SetPic()
 {
-	HBITMAP hBitmap=(HBITMAP)::LoadImage(AfxGetInstanceHandle(), FilePath, IMAGE_BITMAP,0,0,LR_LOADFROMFILE|LR_DEFAULTCOLOR);
+	HBITMAP hBitmap = (HBITMAP)::LoadImage(AfxGetInstanceHandle(), FilePath, IMAGE_BITMAP,0,0,LR_LOADFROMFILE|LR_DEFAULTCOLOR);
+	/*CImage image;
+	image.Load(FilePath);
+	HBITMAP hBitmap = image.Detach();*/
 
 	STGMEDIUM stgm;
 	stgm.tymed   = TYMED_GDI;
@@ -2012,7 +2398,7 @@ void CMainDlg::SetPic()
 	fm.tymed    = TYMED_GDI;
 
 	IStorage *pStorage;
-	LPLOCKBYTES lpLockBytes=NULL;
+	LPLOCKBYTES lpLockBytes = NULL;
 	SCODE sc=::CreateILockBytesOnHGlobal(NULL,TRUE,&lpLockBytes);
 	if(sc!=S_OK) AfxThrowOleException(sc);
 	ASSERT(lpLockBytes!=NULL);
@@ -2024,14 +2410,16 @@ void CMainDlg::SetPic()
 		AfxThrowOleException(sc);
 
 	}
-	ASSERT(pStorage!=NULL);
+	ASSERT(pStorage != NULL);
 
-	COleDataSource *pDataSource=new COleDataSource;
-	pDataSource->CacheData(CF_BITMAP,&stgm);
+	COleDataSource *pDataSource = new COleDataSource;
+	pDataSource->CacheData(CF_BITMAP, &stgm);
 	LPDATAOBJECT lpDataObject=(LPDATAOBJECT)pDataSource->GetInterface(&IID_IDataObject);
 
 	LPOLECLIENTSITE  lpClientSite;
-	CRichEditCtrl* pTextIn1=(CRichEditCtrl*)GetDlgItem(IDC_CODE_RICHEDIT);
+
+	//CRichEditCtrl* pTextIn1 = (CRichEditCtrl*)GetDlgItem(IDC_CODE_RICHEDIT);
+	CRichEditCtrl* pTextIn1 = (CRichEditCtrl*)m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->GetDlgItem(IDC_CODE_RICHEDIT);
 
 	pTextIn1->GetIRichEditOle()->GetClientSite(&lpClientSite);
 
@@ -2060,7 +2448,6 @@ void CMainDlg::SetPic()
 	reobject.pstg = pStorage; 
 	reobject.dwUser = 0;
 
-
 	REOBJECT obj;
 	obj.cbStruct=sizeof(obj);
 	if( GetPic(&obj) )
@@ -2081,7 +2468,7 @@ void CMainDlg::SetPic()
 	// 释放对象
 	if (hBitmap)
 	{
-		//DeleteObject(hBitmap);
+		DeleteObject(hBitmap);
 	}
 	//image.Destroy();
 
@@ -2107,38 +2494,49 @@ void CMainDlg::OnImage()
 
 void  CMainDlg::OnScreenCapture()
 {
+	// 插入图片
+	if (m_hOperate == NULL)
+	{
+		Type = 14;
+		m_hOperate = AfxBeginThread(Operate, this);
+		CloseHandle(m_hOperate->m_hThread);
+	}
+
 	// 延迟
-	Sleep(300);
+	//Sleep(300);
 
-	CDC* pScreenDc = CDC::FromHandle(::GetDC(NULL));//屏幕DC
-	CDC memDc;// 内存DC
-	CBitmap memBmp;
-	CBitmap* pOldBmp;
-	int cx = GetSystemMetrics(SM_CXSCREEN);
-	int cy = GetSystemMetrics(SM_CYSCREEN);
-	memDc.CreateCompatibleDC(pScreenDc);
-	memBmp.CreateCompatibleBitmap(pScreenDc, cx, cy);
-	pOldBmp = memDc.SelectObject(&memBmp);
-	memDc.BitBlt(0, 0, cx, cy, pScreenDc, 0, 0, SRCCOPY);
+	//CDC* pScreenDc = CDC::FromHandle(::GetDC(NULL));//屏幕DC
+	//CDC memDc;// 内存DC
+	//CBitmap memBmp;
+	//CBitmap* pOldBmp;
+	//int cx = GetSystemMetrics(SM_CXSCREEN);
+	//int cy = GetSystemMetrics(SM_CYSCREEN);
+	//memDc.CreateCompatibleDC(pScreenDc);
+	//memBmp.CreateCompatibleBitmap(pScreenDc, cx, cy);
+	//pOldBmp = memDc.SelectObject(&memBmp);
+	//memDc.BitBlt(0, 0, cx, cy, pScreenDc, 0, 0, SRCCOPY);
 
-	//复制到剪切板
-	OpenClipboard();
-	EmptyClipboard();
-	SetClipboardData(CF_BITMAP, memBmp.Detach());
-	CloseClipboard();
+	////复制到剪切板
+	//OpenClipboard();
+	//EmptyClipboard();
+	//SetClipboardData(CF_BITMAP, memBmp.Detach());
+	//CloseClipboard();
 
-	// 显示到当前界面
-	/*CClientDC clientDc(this);
-	CRect rcClient;
-	GetClientRect(rcClient);
-	clientDc.StretchBlt(0, 0, rcClient.Width(), rcClient.Height(), &memDc, 0, 0, cx, cy, SRCCOPY);*/
+	//// 显示到当前界面
+	///*CClientDC clientDc(this);
+	//CRect rcClient;
+	//GetClientRect(rcClient);
+	//clientDc.StretchBlt(0, 0, rcClient.Width(), rcClient.Height(), &memDc, 0, 0, cx, cy, SRCCOPY);*/
 
-	memDc.SelectObject(pOldBmp);
-	memDc.DeleteDC();
-	memBmp.DeleteObject();
+	//memDc.SelectObject(pOldBmp);
+	//memDc.DeleteDC();
+	//memBmp.DeleteObject();
 
-	// 粘贴
-	m_Edit.Paste();
+	//// 粘贴
+	//m_Edit.Paste();
+
+	//m_Screen->CenterWindow();
+	//m_Screen->ShowWindow(SW_SHOW);
 }
 
 
@@ -2164,49 +2562,327 @@ int CMainDlg::CountFile(CString DirPath)
 }
 
 
-void CMainDlg::OnChangeCodeRichedit()
+void CMainDlg::OnOpen()
 {
-	// TODO:  如果该控件是 RICHEDIT 控件，它将不
-	// 发送此通知，除非重写 CDialogEx::OnInitDialog()
-	// 方法并调用 CRichEditCtrl().SetEventMask()，
-	// 同时将 ENM_CHANGE 标志“或”运算到掩码中。
-	VMPBEGIN
-
-	//IsChange = true;
-	// 自动保存
+	// 打开方法
 	if (m_hOperate == NULL)
 	{
-		Type = 7;
+		Type = 13;
 		m_hOperate = AfxBeginThread(Operate, this);
 		CloseHandle(m_hOperate->m_hThread);
 	}
-
-	VMPEND
 }
 
 
-void CMainDlg::OnKillfocusCodeRichedit()
+void CMainDlg::OnParagraph()
 {
-	//if(IsChange)
-	//{
-	//	// 自动保存
-	//	if (m_hOperate == NULL)
-	//	{
-	//		Type = 7;
-	//		m_hOperate = AfxBeginThread(Operate, this);
-	//		CloseHandle(m_hOperate->m_hThread);
-	//	}
+	CParagraphDlg dlg;
 
-	//	// 初始化
-	//	IsChange = false;
-	//}
+	PARAFORMAT2 pf;
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetParaFormat(pf);
+
+	//dlg.m_Left.Format(_T("%d"),    pf.dxOffset);
+	//dlg.m_Tab.Format(_T("%d"),     pf.cTabCount);
+
+	dlg.m_Index.Format(_T("%d"),   pf.dxStartIndent);
+	dlg.m_Right.Format(_T("%d"),   pf.dxRightIndent);
+	dlg.m_Spacing.Format(_T("%d"), pf.dyLineSpacing);
+	dlg.m_Part.Format(_T("%d"),    pf.dySpaceAfter);
+	dlg.m_Tab.Format(_T("%d"),     pf.dxOffset);
+
+	// 对齐方式
+	if(pf.wAlignment == PFA_LEFT)
+		dlg.Alignment = 0;
+	else if(pf.wAlignment == PFA_RIGHT)
+		dlg.Alignment = 1;
+	else
+		dlg.Alignment = 2;
+
+	// 列表样式
+	if(pf.wNumbering == PFN_BULLET)
+		dlg.Tab = 1;
+	else if(pf.wNumbering == PFN_ARABIC)
+		dlg.Tab = 2;
+	else if(pf.wNumbering == PFN_LCLETTER)
+		dlg.Tab = 3;
+	else if(pf.wNumbering == PFN_UCLETTER)
+		dlg.Tab = 4;
+	else if(pf.wNumbering == PFN_LCROMAN)
+		dlg.Tab = 5;
+	else if(pf.wNumbering == PFN_UCROMAN)
+		dlg.Tab = 6;
+	else
+		dlg.Tab = 0;
+
+	if(dlg.DoModal() == IDOK)
+	{
+		pf.cbSize = sizeof(PARAFORMAT2); // 缩进 首行缩进           段间距           行间距            // 右间距        // 对齐方式     // 列表样式
+		pf.dwMask = PFM_NUMBERING | PFM_OFFSET | PFM_STARTINDENT | PFM_SPACEAFTER | PFM_LINESPACING | PFM_RIGHTINDENT | PFM_ALIGNMENT | PFM_TABSTOPS;
+		pf.dxStartIndent = atol(dlg.m_Index);
+		pf.dxRightIndent = atol(dlg.m_Right);
+		pf.dyLineSpacing = atol(dlg.m_Spacing);
+		pf.dySpaceAfter  = atol(dlg.m_Part);
+		//pf.cTabCount     = atoi(dlg.m_Tab);
+		pf.dxOffset      = atoi(dlg.m_Tab);
+		
+		// 对齐方式
+		if(dlg.Alignment == 0)
+			pf.wAlignment = PFA_LEFT;
+		else if(dlg.Alignment == 1)
+			pf.wAlignment = PFA_RIGHT;
+		else
+			pf.wAlignment = PFA_CENTER;
+
+		// 列表样式
+		if(dlg.Tab == 0)
+			pf.wNumbering = NULL;
+		else if(dlg.Tab == 1)
+			pf.wNumbering = PFN_BULLET;
+		else if(dlg.Tab == 2)
+			pf.wNumbering = PFN_ARABIC;
+		else if(dlg.Tab == 3)
+			pf.wNumbering = PFN_LCLETTER;
+		else if(dlg.Tab == 4)
+			pf.wNumbering = PFN_UCLETTER;
+		else if(dlg.Tab == 5)
+			pf.wNumbering = PFN_LCROMAN;
+		else if(dlg.Tab == 6)
+			pf.wNumbering = PFN_UCROMAN;
+
+		VERIFY(m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetParaFormat(pf));
+	}
 }
 
 
-void CMainDlg::OnSetfocusCodeRichedit()
+void CMainDlg::OnNone()
 {
-	GetDlgItem(IDC_NEW_BUTTON)->SetWindowText(_T("添加方法"));
-	IsNew = TRUE;
+	PARAFORMAT2 pf;
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetParaFormat(pf);
+	pf.cbSize     = sizeof(PARAFORMAT2);
+	pf.dwMask     = PFM_NUMBERING;  // 列表样式
+	pf.wNumbering = NULL;
+	VERIFY(m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetParaFormat(pf));
+}
+
+
+void CMainDlg::OnSymbol()
+{
+	PARAFORMAT2 pf;
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetParaFormat(pf);
+	pf.cbSize     = sizeof(PARAFORMAT2);
+	pf.dwMask     = PFM_NUMBERING;  // 列表样式
+	pf.wNumbering = PFN_BULLET;
+	VERIFY(m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetParaFormat(pf));
+}
+
+
+void CMainDlg::OnNumber()
+{
+	PARAFORMAT2 pf;
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetParaFormat(pf);
+	pf.cbSize     = sizeof(PARAFORMAT2);
+	pf.dwMask     = PFM_NUMBERING;  // 列表样式
+	pf.wNumbering = PFN_ARABIC;
+	VERIFY(m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetParaFormat(pf));
+}
+
+
+void CMainDlg::OnLowerCase()
+{
+	PARAFORMAT2 pf;
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetParaFormat(pf);
+	pf.cbSize     = sizeof(PARAFORMAT2);
+	pf.dwMask     = PFM_NUMBERING;  // 列表样式
+	pf.wNumbering = PFN_LCLETTER;
+	VERIFY(m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetParaFormat(pf));
+}
+
+
+void CMainDlg::OnUpperCase()
+{
+	PARAFORMAT2 pf;
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetParaFormat(pf);
+	pf.cbSize     = sizeof(PARAFORMAT2);
+	pf.dwMask     = PFM_NUMBERING;  // 列表样式
+	pf.wNumbering = PFN_UCLETTER;
+	VERIFY(m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetParaFormat(pf));
+}
+
+
+void CMainDlg::OnLowerRome()
+{
+	PARAFORMAT2 pf;
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetParaFormat(pf);
+	pf.cbSize     = sizeof(PARAFORMAT2);
+	pf.dwMask     = PFM_NUMBERING;  // 列表样式
+	pf.wNumbering = PFN_LCROMAN;
+	VERIFY(m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetParaFormat(pf));
+}
+
+
+void CMainDlg::OnUpperRome()
+{
+	PARAFORMAT2 pf;
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetParaFormat(pf);
+	pf.cbSize     = sizeof(PARAFORMAT2);
+	pf.dwMask     = PFM_NUMBERING;  // 列表样式
+	pf.wNumbering = PFN_UCROMAN;
+	VERIFY(m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetParaFormat(pf));
+}
+
+
+void CMainDlg::OnNewLabel()
+{
+	// 新建标签
+	m_pDocument[TabCount] = new CDocumentDlg();
+	m_Tab.CreateTabPage(m_pDocument[TabCount], IDD_DOCUMENT_DIALOG, FileName);
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileClass = FileClass;
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileType  = FileType;
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileName  = FileName;
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FilePath  = FilePath;
+	TabCount++;
+}
+
+
+void CMainDlg::OnSetLabel()
+{
+	if(!m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->IsOutFunction)
+	{
+		CString CurClass, CurType, TargetClass, TargetType;
+		m_Class.GetWindowText(CurClass);
+		m_Type.GetWindowText (CurType);
+
+		TargetClass = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileClass;
+		TargetType  = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileType;
+
+		if(!TargetClass.IsEmpty() && TargetClass != CurClass)
+		{
+			int nIndex = m_Class.FindStringExact(0, TargetClass);
+			if(nIndex != CB_ERR)
+			{
+				m_Class.SetCurSel(nIndex);
+
+				// 清空ComboBox
+				m_Type.ResetContent();
+
+				CString FilePath = _T("Code\\") + TargetClass;
+
+				CFileFind Finder;
+				BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+				while (IsFind)
+				{
+					IsFind = Finder.FindNextFile();
+
+					if (Finder.IsDots())
+						continue;
+					if (Finder.IsDirectory())
+						m_Type.AddString(Finder.GetFileName());
+				}
+
+				// 设置ComboBox
+				m_Type.SetCurSel(0);
+			}
+		}
+
+		if(!TargetType.IsEmpty() && TargetType != CurType)
+		{
+			int nIndex = m_Type.FindStringExact(0, TargetType);
+			if(nIndex != CB_ERR)
+			{
+				m_Type.SetCurSel(nIndex);
+
+				// 清空列表
+				m_List.DeleteAllItems();
+
+				CString FilePath = _T("Code\\") + TargetClass + _T("\\") + TargetType;
+
+				CFileFind Finder;
+				BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+				while (IsFind)
+				{
+					IsFind = Finder.FindNextFile();
+
+					if (Finder.IsDots())
+						continue;
+					if (Finder.IsDirectory())
+						continue;
+					else
+					{
+						CString Name = Finder.GetFileName();
+						m_List.AddItem(Name.Left(Name.GetLength() - 5));
+					}
+				}
+			}
+		}
+
+		// 取消选择
+		m_List.SetItemState(m_List.GetNextItem(-1, LVIS_SELECTED), 0, LVIS_SELECTED | LVIS_FOCUSED);
+
+		// 找到对应的方法
+		int Count = m_List.GetItemCount();
+		for(int i=0; i<Count; i++)
+		{
+			CString Function = m_List.GetItemText(i, 0);
+
+			if(Function == m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileName)
+			{
+				//设置高亮显示  
+				m_List.SetFocus();//设置焦点  
+				m_List.SetItemState(i, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);//设置状态  
+				m_List.EnsureVisible(i, FALSE);//设置当前视图可见
+				break;
+			}
+		}
+
+		// 焦点转移
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetFocus();
+
+		// 更改按钮文本
+		CString Text;
+		GetDlgItem(IDC_NEW_BUTTON)->GetWindowText(Text);
+
+		CString Title = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileName;
+		if(Title != _T("新方法"))
+		{
+			if(Text != _T("编辑方法"))
+			{
+				// 更改按钮文本
+				GetDlgItem(IDC_NEW_BUTTON)->SetWindowText(_T("编辑方法"));
+
+				// 编辑标记
+				IsNew = FALSE;
+			}
+		}
+		else if(!Title.IsEmpty())
+		{
+			// 更改按钮文本
+			GetDlgItem(IDC_NEW_BUTTON)->SetWindowText(_T("添加方法"));
+
+			// 添加标记
+			IsNew  = TRUE;
+		}
+
+		// 设置焦点
+		m_List.SetFocus();
+	}
+	else
+	{
+		// 取消选择
+		m_List.SetItemState(m_List.GetNextItem(-1, LVIS_SELECTED), 0, LVIS_SELECTED | LVIS_FOCUSED);
+
+		// 更改按钮文本
+		CString Text;
+		GetDlgItem(IDC_NEW_BUTTON)->GetWindowText(Text);
+
+		if(Text != _T("编辑方法"))
+		{
+			// 更改按钮文本
+			GetDlgItem(IDC_NEW_BUTTON)->SetWindowText(_T("编辑方法"));
+
+			// 编辑标记
+			IsNew = FALSE;
+		}
+    }
 }
 
 
@@ -2215,15 +2891,6 @@ void CMainDlg::OnClickCodeList(NMHDR *pNMHDR, LRESULT *pResult)
 	VMPBEGIN
 
 	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
-
-	// 读取目标文件
-	if (m_hOperate == NULL)
-	{
-		Type = 1;
-		m_hOperate = AfxBeginThread(Operate, this);
-		CloseHandle(m_hOperate->m_hThread);
-	}
-
 	*pResult = 0;
 
 	VMPEND
@@ -2296,7 +2963,13 @@ void CMainDlg::OnDblclkCodeList(NMHDR *pNMHDR, LRESULT *pResult)
 void CMainDlg::OnItemchangedCodeList(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	VMPBEGIN
-		OnClickCodeList(pNMHDR, pResult);
+		// 读取目标文件
+		if (m_hOperate == NULL)
+		{
+			Type = 1;
+			m_hOperate = AfxBeginThread(Operate, this);
+			CloseHandle(m_hOperate->m_hThread);
+		}
 	VMPEND
 }
 
@@ -2364,7 +3037,7 @@ void CMainDlg::OnDelete()
 		// 内容变更消息
 
 		// 清空编辑框
-		m_Edit.SetWindowText(_T(""));
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetWindowText(_T(""));
 
 		// 清空ComboBox
 		m_Type.ResetContent();
@@ -2434,10 +3107,8 @@ void CMainDlg::OnDelete()
 				// 设置选项
 				m_Class.SetCurSel(0);
 
-				// 内容变更消息
-
 				// 清空编辑框
-				m_Edit.SetWindowText(_T(""));
+				m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetWindowText(_T(""));
 
 				// 清空ComboBox
 				m_Type.ResetContent();
@@ -2527,7 +3198,7 @@ void CMainDlg::OnDelete()
 				}
 
 				// 清空编辑框
-				m_Edit.SetWindowText(_T(""));
+				m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetWindowText(_T(""));
 
 				// 消息提示
 				MessageBox(_T("删除完毕!"), _T("分类删除成功"), MB_ICONINFORMATION | MB_OK);
@@ -2689,33 +3360,29 @@ void CMainDlg::OnDropdownTypeCombo()
 
 void CMainDlg::OnEditFunction()
 {
-	CString Class, Type, Function;
-	m_Class.GetWindowText(Class);
-	m_Type.GetWindowText(Type);
-	Function = m_List.GetItemText(m_List.GetNextItem(-1, LVIS_SELECTED), 0);
-
-	// 判断选中方法
-	if (!Function.IsEmpty() && m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
+	// 判断外部方法
+	if(m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->IsOutFunction && !m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FilePath.IsEmpty())
 	{
 		CEditDlg dlg;
-		dlg.Type  = Function;
+		dlg.Type  = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileName;
 		dlg.IsFunction = true;
 
 		if(dlg.DoModal() == IDOK)
 		{
-			CString old_Path = _T("Code\\") + Class + _T("\\") + Type + _T("\\") + Function + _T(".code");
-			CString new_Path = _T("Code\\") + Class + _T("\\") + Type + _T("\\") + dlg.Type + _T(".code");
+			CString old_Path = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FilePath;
+			CString new_Path = old_Path.Left(old_Path.GetLength() - m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileName.GetLength() -5) + dlg.Type + _T(".code");
 
+			// 重命名
 			if(MoveFileEx(old_Path, new_Path, MOVEFILE_REPLACE_EXISTING))
 			{
-				int Row = m_List.GetNextItem(-1, LVIS_SELECTED);
-				m_List.SetItemText(Row, 0, dlg.Type);
+				// 修改标签属性
+				m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileName   = dlg.Type;
+				m_Tab.SetPageTitle(m_Tab.m_selTabID, (TCHAR*)(LPCTSTR)dlg.Type);
 
-				//设置高亮显示
-				m_List.SetFocus();//设置焦点  
-				m_List.SetItemState(Row, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);//设置状态  
-				m_List.EnsureVisible(Row, FALSE);//设置当前视图可见 
+				// 刷新
+				m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->Invalidate();
 
+				// 提示消息
 				MessageBox(_T("方法修改成功!"), _T("修改成功"), MB_ICONINFORMATION | MB_OK);
 			}
 			else
@@ -2726,7 +3393,61 @@ void CMainDlg::OnEditFunction()
 	}
 	else
 	{
-		AfxMessageBox(_T("请选择要编辑的方法!"));
+		CString Class = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileClass, 
+			Type  = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileType, 
+			Function = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileName;
+
+		// 判断选中方法
+		if (!Function.IsEmpty() && !Class.IsEmpty() && !Type.IsEmpty())
+		{
+			CEditDlg dlg;
+			dlg.Type  = Function;
+			dlg.IsFunction = true;
+
+			if(dlg.DoModal() == IDOK)
+			{
+				CString old_Path = _T("Code\\") + Class + _T("\\") + Type + _T("\\") + Function + _T(".code");
+				CString new_Path = _T("Code\\") + Class + _T("\\") + Type + _T("\\") + dlg.Type + _T(".code");
+
+				if(MoveFileEx(old_Path, new_Path, MOVEFILE_REPLACE_EXISTING))
+				{
+					// 修改列表
+					int Count = m_List.GetItemCount();
+					for(int i=0; i<Count; i++)
+					{
+						CString Name = m_List.GetItemText(i, 0);
+						if(Function == Name)
+						{
+							m_List.SetItemText(i, 0, dlg.Type);
+
+							// 修改标签属性
+							m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileName   = dlg.Type;
+							m_Tab.SetPageTitle(m_Tab.m_selTabID, (TCHAR*)(LPCTSTR)dlg.Type);
+
+							// 提示消息
+							MessageBox(_T("方法修改成功!"), _T("修改成功"), MB_ICONINFORMATION | MB_OK);
+
+							// 取消选择
+							m_List.SetItemState(m_List.GetNextItem(-1, LVIS_SELECTED), 0, LVIS_SELECTED | LVIS_FOCUSED);
+
+							//设置高亮显示
+							m_List.SetFocus();//设置焦点
+							m_List.SetItemState(i, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);//设置状态
+							m_List.EnsureVisible(i, FALSE);//设置当前视图可见
+							break;
+						}
+					}
+				}
+				else
+				{
+					AfxMessageBox(_T("方法修改失败!"));
+				}
+			}
+		}
+		else
+		{
+			AfxMessageBox(_T("新方法无需编辑, 请保存方法!"));
+		}
 	}
 }
 
@@ -2756,14 +3477,14 @@ void CMainDlg::OnFont()
 	memset(&lf, 0, sizeof(LOGFONT)); 
 
 	//判断是否选择了内容
-	BOOL bSelect = (m_Edit.GetSelectionType() != SEL_EMPTY) ? TRUE : FALSE; 
+	BOOL bSelect = (m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetSelectionType() != SEL_EMPTY) ? TRUE : FALSE; 
 	if (bSelect)
 	{
-		m_Edit.GetSelectionCharFormat(cf);
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetSelectionCharFormat(cf);
 	}
 	else
 	{
-		m_Edit.GetDefaultCharFormat(cf);
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetDefaultCharFormat(cf);
 	}
 
 	//得到相关字体属性
@@ -2795,9 +3516,9 @@ void CMainDlg::OnFont()
 	{
 		dlg.GetCharFormat(cf);//获得所选字体的属性
 		if (bSelect)
-			m_Edit.SetSelectionCharFormat(cf);    //为选定的内容设定所选字体
+			m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetSelectionCharFormat(cf);    //为选定的内容设定所选字体
 		else
-			m_Edit.SetWordCharFormat(cf);         //为将要输入的内容设定字体
+			m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetWordCharFormat(cf);         //为将要输入的内容设定字体
 	}
 
 	VMPEND
@@ -2806,35 +3527,17 @@ void CMainDlg::OnFont()
 
 void CMainDlg::OnNew()
 {
-	// 添加方法
+	// 创建标签
 	if(IsNew)
 	{
 		// 取消选择
-		m_List.SetItemState(m_List.GetNextItem(-1, LVIS_SELECTED), 0, LVIS_SELECTED | LVIS_FOCUSED);
+		//m_List.SetItemState(m_List.GetNextItem(-1, LVIS_SELECTED), 0, LVIS_SELECTED | LVIS_FOCUSED);
 
-		CString Text;
-		GetDlgItem(IDC_CODE_RICHEDIT)->GetWindowText(Text);
-
-		if(!Text.IsEmpty())
-		{
-			// 询问是否清空
-			if( MessageBox(_T("是否清空当前内容?"), _T("是否清空"), MB_ICONQUESTION | MB_YESNO) == IDYES )
-			{
-				// 清空内容
-				m_Edit.SetWindowText(_T(""));
-			}
-
-			this->Type = 10;
-			m_hOperate = AfxBeginThread(Operate, this);
-		}
-		else
-		{
-			if (m_hOperate == NULL)
-			{
-				this->Type = 10;
-				m_hOperate = AfxBeginThread(Operate, this);
-			}
-		}
+		// 新建标签
+		m_pDocument[TabCount] = new CDocumentDlg();
+		m_Tab.CreateTabPage(m_pDocument[TabCount], IDD_DOCUMENT_DIALOG, _T("新方法"));
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileName = _T("新方法");
+		TabCount++;
 	}
 	else
 	{
@@ -2846,7 +3549,7 @@ void CMainDlg::OnNew()
 
 void CMainDlg::OnClearFormat()
 {
-	CString source = m_Edit.GetSelText();
+	CString source = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetSelText();
 	if(!source.IsEmpty())
 	{
 		//CHARFORMAT cf;  
@@ -2866,7 +3569,7 @@ void CMainDlg::OnClearFormat()
 		//m_Edit.SetSelectionCharFormat(cf);  
 
 		CHARFORMAT cf;
-		m_Edit.GetSelectionCharFormat(cf);
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetSelectionCharFormat(cf);
 		cf.dwMask|=CFM_BOLD;
 		cf.dwEffects&=~CFE_BOLD;      //设置粗体，取消用cf.dwEffects&=~CFE_BOLD;
 		cf.dwMask|=CFM_ITALIC;
@@ -2879,7 +3582,7 @@ void CMainDlg::OnClearFormat()
 		cf.yHeight = 14 * 14;         //设置高度
 		cf.dwMask|=CFM_FACE;
 		strcpy_s(cf.szFaceName ,_T("宋体"));//设置字体
-		m_Edit.SetSelectionCharFormat(cf);
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.SetSelectionCharFormat(cf);
 	}
 	else
 	{
@@ -2892,18 +3595,17 @@ void CMainDlg::OnDirectory()
 {
 	VMPBEGIN
 
-	CString Class, Type, Dir;
-	m_Class.GetWindowText(Class);
-	m_Type.GetWindowText(Type);
-
-	if(Class.IsEmpty())
+	if(m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->IsOutFunction)
 	{
-		AfxMessageBox(_T("请输入类型!"));
+		AfxMessageBox(_T("外部方法不存在依赖文件!"));
 		return;
 	}
-	else if(Type.IsEmpty())
+
+	CString Class = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileClass, Type = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileType, Dir;
+
+	if(Class.IsEmpty() || Type.IsEmpty())
 	{
-		AfxMessageBox(_T("请输入类别!"));
+		AfxMessageBox(_T("新方法不存在依赖文件, 请先保存方法!"));
 		return;
 	}
 
@@ -2945,16 +3647,62 @@ void CMainDlg::OnRemove()
 {
 	VMPBEGIN
 
-	int Count = m_List.GetSelectedCount();
-	CString Path = m_List.GetItemText(m_List.GetNextItem(-1, LVIS_SELECTED), 0);
-
-	if (!Path.IsEmpty() && m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
+	// 判断外部方法
+	if(m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->IsOutFunction)
 	{
-		if(Count == 1)
+		if(MessageBox(_T("是否要移除当前方法? "),  _T("方法移除确认"), MB_ICONQUESTION | MB_YESNO) == IDYES)
 		{
-			if (!Path.IsEmpty() && m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
+			// 移除方法
+			DeleteFile(m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FilePath);
+
+			// 关闭标签
+			m_Tab.OnRButtonDown(NULL, NULL);
+		}
+	}
+	else
+	{
+		int Count = m_List.GetSelectedCount();
+		CString Path = m_List.GetItemText(m_List.GetNextItem(-1, LVIS_SELECTED), 0);
+
+		if (!Path.IsEmpty() && m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
+		{
+			if(Count == 1)
 			{
-				if(MessageBox(_T("是否要移除当前方法? "),  _T("方法移除确认"), MB_ICONQUESTION | MB_YESNO) == IDYES)
+				if (!Path.IsEmpty() && m_List.GetNextItem(-1, LVIS_SELECTED) != -1)
+				{
+					if(MessageBox(_T("是否要移除当前方法? "),  _T("方法移除确认"), MB_ICONQUESTION | MB_YESNO) == IDYES)
+					{
+						// 移除方法
+						if (m_hOperate == NULL)
+						{
+							Type = 11;
+							m_hOperate = AfxBeginThread(Operate, this);
+						}
+						//CString Class, Type;
+						//m_Class.GetWindowText(Class);
+						//m_Type.GetWindowText(Type);
+
+						//// 删除文件
+						//DeleteFile(_T("Code\\") + Class + _T("\\") + Type + _T("\\") + Path + _T(".code"));
+
+						//// 移除列表
+						//m_List.DeleteItem(m_List.GetNextItem(-1, LVIS_SELECTED));
+
+						//// 清空编辑框
+						//m_Edit.SetWindowText(_T(""));
+
+						//// 删除依赖
+						//DeleteDirectory(_T("File\\") + Class + _T("\\") + Type + _T("\\") + Path);
+					}
+				}
+				else
+				{
+					AfxMessageBox(_T("请选择要移除的方法!"));
+				}
+			}
+			else if(Count > 1)
+			{
+				if(MessageBox(_T("是否要移除选中的方法? "), _T("方法移除确认"), MB_ICONQUESTION | MB_YESNO) == IDYES)
 				{
 					// 移除方法
 					if (m_hOperate == NULL)
@@ -2962,21 +3710,44 @@ void CMainDlg::OnRemove()
 						Type = 11;
 						m_hOperate = AfxBeginThread(Operate, this);
 					}
-					//CString Class, Type;
-					//m_Class.GetWindowText(Class);
-					//m_Type.GetWindowText(Type);
+					//int nItem = -1;
+					//POSITION pos;
 
-					//// 删除文件
-					//DeleteFile(_T("Code\\") + Class + _T("\\") + Type + _T("\\") + Path + _T(".code"));
+					//while (pos = m_List.GetFirstSelectedItemPosition())
+					//{
+					//	nItem = -1;
+					//	nItem = m_List.GetNextSelectedItem(pos);
+					//	if (nItem >= 0 && m_List.GetSelectedCount() > 0)
+					//	{
+					//		CString Path = m_List.GetItemText(nItem, 0);
 
-					//// 移除列表
-					//m_List.DeleteItem(m_List.GetNextItem(-1, LVIS_SELECTED));
+					//		CString Class, Type;
+					//		m_Class.GetWindowText(Class);
+					//		m_Type.GetWindowText(Type);
 
-					//// 清空编辑框
-					//m_Edit.SetWindowText(_T(""));
+					//		// 删除文件
+					//		DeleteFile(_T("Code\\") + Class + _T("\\") + Type + _T("\\") + Path + _T(".code"));
 
-					//// 删除依赖
-					//DeleteDirectory(_T("File\\") + Class + _T("\\") + Type + _T("\\") + Path);
+					//		// 移除列表
+					//		m_List.DeleteItem(nItem);
+
+					//		// 删除依赖
+					//		DeleteDirectory(_T("File\\") + Class + _T("\\") + Type + _T("\\") + Path);
+					//	}
+					//}
+
+					//for (int i = 0; i < Count; i++)
+					//{
+					//	int Row = m_List.GetNextItem(i - 1, LVIS_SELECTED);
+					//	CString Path = m_List.GetItemText(Row, 0);
+
+					//	CString Class, Type;
+					//	m_Class.GetWindowText(Class);
+					//	m_Type.GetWindowText(Type);
+
+					//	DeleteFile(_T("Code\\") + Class + _T("\\") + Type + _T("\\") + Path + _T(".rtf"));
+					//	//m_List.DeleteItem(m_List.GetNextItem(-1, LVIS_SELECTED));
+					//}
 				}
 			}
 			else
@@ -2984,64 +3755,10 @@ void CMainDlg::OnRemove()
 				AfxMessageBox(_T("请选择要移除的方法!"));
 			}
 		}
-		else if(Count > 1)
-		{
-			if(MessageBox(_T("是否要移除选中的方法? "), _T("方法移除确认"), MB_ICONQUESTION | MB_YESNO) == IDYES)
-			{
-				// 移除方法
-				if (m_hOperate == NULL)
-				{
-					Type = 11;
-					m_hOperate = AfxBeginThread(Operate, this);
-				}
-				//int nItem = -1;
-				//POSITION pos;
-
-				//while (pos = m_List.GetFirstSelectedItemPosition())
-				//{
-				//	nItem = -1;
-				//	nItem = m_List.GetNextSelectedItem(pos);
-				//	if (nItem >= 0 && m_List.GetSelectedCount() > 0)
-				//	{
-				//		CString Path = m_List.GetItemText(nItem, 0);
-
-				//		CString Class, Type;
-				//		m_Class.GetWindowText(Class);
-				//		m_Type.GetWindowText(Type);
-
-				//		// 删除文件
-				//		DeleteFile(_T("Code\\") + Class + _T("\\") + Type + _T("\\") + Path + _T(".code"));
-
-				//		// 移除列表
-				//		m_List.DeleteItem(nItem);
-
-				//		// 删除依赖
-				//		DeleteDirectory(_T("File\\") + Class + _T("\\") + Type + _T("\\") + Path);
-				//	}
-				//}
-
-				//for (int i = 0; i < Count; i++)
-				//{
-				//	int Row = m_List.GetNextItem(i - 1, LVIS_SELECTED);
-				//	CString Path = m_List.GetItemText(Row, 0);
-
-				//	CString Class, Type;
-				//	m_Class.GetWindowText(Class);
-				//	m_Type.GetWindowText(Type);
-
-				//	DeleteFile(_T("Code\\") + Class + _T("\\") + Type + _T("\\") + Path + _T(".rtf"));
-				//	//m_List.DeleteItem(m_List.GetNextItem(-1, LVIS_SELECTED));
-				//}
-			}
-		}
 		else
 		{
 			AfxMessageBox(_T("请选择要移除的方法!"));
 		}
-	}
-	else
-	{
-		AfxMessageBox(_T("请选择要移除的方法!"));
 	}
 
 	VMPEND

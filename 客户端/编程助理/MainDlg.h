@@ -5,7 +5,14 @@
 
 #include "olericheditctrl.h"
 #include "SettingDlg.h"
+#include "../capture/ScreenToolDlg.h"
 
+#include "TabSheet.h"
+#include "DocumentDlg.h"
+
+#include "AssistantDlg.h"
+#include "capture/common.h"
+#include <atlimage.h>
 
 // CMainDlg 对话框
 
@@ -20,7 +27,12 @@ public:
 	CSortListCtrl m_List;
 	CComboBox m_Class;
 	CComboBox m_Type;
-	COleRichEditCtrl m_Edit;
+
+	int TabCount;
+	CTabSheet m_Tab;
+	CDocumentDlg* m_pDocument[1000];
+
+	CString CurClass, CurType;
 
 	void static DeleteDirectory(CString Directory);
 	void Refresh(), OnHelp();
@@ -33,16 +45,41 @@ public:
 	void OnCheck();
 	void OnSaveCode();
 	void OnNewCode();
+	void OnNewLabel();
+	void OnSetLabel();
 
 	void OnCopy(), OnPaste(), OnCut();
-	void OnUndo(), OnRedo();
+	void OnOpen(), OnUndo(), OnRedo();
 	BOOL GetPic(REOBJECT FAR* pObject);
 	void SetPic(), OnImage(), OnScreenCapture();
 	void OnLeft(), OnRight(), OnCenter();
 	int  static CountFile(CString DirPath);
+	void OnParagraph(), OnNone(), OnSymbol(), OnNumber();
+	void OnLowerCase(), OnUpperCase(), OnLowerRome(), OnUpperRome();
 
 	bool Compress  (const char* scrfilename, const char* desfilename);
 	bool Uncompress(const char* scrfilename, const char* desfilename);
+
+	// 编码助理
+	HCURSOR m_hCursor;
+	CAssistantDlg * m_pAssisDlg;
+
+	//定义当前窗口句柄
+	HWND m_curWnd;
+
+	//定义前一个窗口句柄
+	HWND m_preWnd;
+	RECT m_rectOfWnd;
+	HBITMAP m_rectOfWndBmp;
+	BOOL m_bSnap;
+
+	// 退出标识
+	BOOL IsExit;
+
+	void SnapWindow(POINT point);
+	void DrawRectInWnd(LPRECT pRect);
+	void OnCodeAssistant();
+	void ClearScreen();
 
 // 对话框数据
 	enum { IDD = IDD_MAIN_DIALOG };
@@ -62,9 +99,8 @@ protected:
 	// 线程对象
 	CWinThread * m_hOperate, * m_hUpDate;
 
-	CString UpDateInfo, Error, Msg, FilePath;
-	BOOL IsNew, IsSave;
-
+	CString UpDateInfo, Error, Msg, FilePath, FileName, FileClass, FileType;
+	BOOL IsNew, IsEdit;
 	IOleObject* m_pPicObj;
 
 	DECLARE_MESSAGE_MAP()
@@ -99,18 +135,15 @@ public:
 	afx_msg void OnDropdownClassCombo();
 	afx_msg void OnDropdownTypeCombo();
 
-	afx_msg void OnRichEditLink(NMHDR* in_pNotifyHeader, LRESULT*out_pResult ); 
-	afx_msg void OnSetfocusCodeRichedit();
-	afx_msg void OnKillfocusCodeRichedit();
-
 	afx_msg void OnEdit();
 	afx_msg void OnClearFormat();
 	afx_msg void OnSynchronization();
 	afx_msg void OnSetting();
-	afx_msg void OnChangeCodeRichedit();
 	afx_msg void OnManager();
 	afx_msg void OnNew();
 
 	virtual void OnCancel();
-	
+	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
+	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
+	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
 };

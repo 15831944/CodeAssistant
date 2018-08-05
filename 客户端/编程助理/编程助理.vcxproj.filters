@@ -14,7 +14,10 @@
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
     <Filter Include="code_base">
-      <UniqueIdentifier>{ad89d878-2281-44c4-9d38-aec66d9be2c7}</UniqueIdentifier>
+      <UniqueIdentifier>{e50beebd-233b-45a2-87d9-8f1b4bad7069}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="capture">
+      <UniqueIdentifier>{b8de7b6a-d7f1-472c-823c-0d9d869b7143}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -25,6 +28,21 @@
       <Filter>资源文件</Filter>
     </None>
     <None Include="res\code.ico">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\clip.ico">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\ColorSnap.ico">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\magnifier.ico">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\8.ico">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\10.cur">
       <Filter>资源文件</Filter>
     </None>
   </ItemGroup>
@@ -98,6 +116,18 @@
     <ClInclude Include="TransmissionDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="NotifyDlg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="WebProjectDlg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="WebEditDlg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="GroupDlg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="code_base\ControlAnchor.h">
       <Filter>code_base</Filter>
     </ClInclude>
@@ -110,16 +140,37 @@
     <ClInclude Include="code_base\CustomDrawUtils.h">
       <Filter>code_base</Filter>
     </ClInclude>
-    <ClInclude Include="NotifyDlg.h">
+    <ClInclude Include="capture\common.h">
+      <Filter>capture</Filter>
+    </ClInclude>
+    <ClInclude Include="capture\FullScreenWnd.h">
+      <Filter>capture</Filter>
+    </ClInclude>
+    <ClInclude Include="capture\ImageButton.h">
+      <Filter>capture</Filter>
+    </ClInclude>
+    <ClInclude Include="capture\MagnifierDlg.h">
+      <Filter>capture</Filter>
+    </ClInclude>
+    <ClInclude Include="capture\PickColorDlg.h">
+      <Filter>capture</Filter>
+    </ClInclude>
+    <ClInclude Include="capture\ScreenToolDlg.h">
+      <Filter>capture</Filter>
+    </ClInclude>
+    <ClInclude Include="capture\SnapWindowDlg.h">
+      <Filter>capture</Filter>
+    </ClInclude>
+    <ClInclude Include="ParagraphDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="WebProjectDlg.h">
+    <ClInclude Include="DocumentDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="WebEditDlg.h">
+    <ClInclude Include="TabSheet.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="GroupDlg.h">
+    <ClInclude Include="AssistantDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -187,6 +238,18 @@
     <ClCompile Include="TransmissionDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="NotifyDlg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="WebProjectDlg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="WebEditDlg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="GroupDlg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
     <ClCompile Include="code_base\ControlAnchor.cpp">
       <Filter>code_base</Filter>
     </ClCompile>
@@ -199,16 +262,37 @@
     <ClCompile Include="code_base\CustomDrawUtils.cpp">
       <Filter>code_base</Filter>
     </ClCompile>
-    <ClCompile Include="NotifyDlg.cpp">
+    <ClCompile Include="capture\common.cpp">
+      <Filter>capture</Filter>
+    </ClCompile>
+    <ClCompile Include="capture\FullScreenWnd.cpp">
+      <Filter>capture</Filter>
+    </ClCompile>
+    <ClCompile Include="capture\ImageButton.cpp">
+      <Filter>capture</Filter>
+    </ClCompile>
+    <ClCompile Include="capture\MagnifierDlg.cpp">
+      <Filter>capture</Filter>
+    </ClCompile>
+    <ClCompile Include="capture\PickColorDlg.cpp">
+      <Filter>capture</Filter>
+    </ClCompile>
+    <ClCompile Include="capture\ScreenToolDlg.cpp">
+      <Filter>capture</Filter>
+    </ClCompile>
+    <ClCompile Include="capture\SnapWindowDlg.cpp">
+      <Filter>capture</Filter>
+    </ClCompile>
+    <ClCompile Include="ParagraphDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="WebProjectDlg.cpp">
+    <ClCompile Include="DocumentDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="WebEditDlg.cpp">
+    <ClCompile Include="TabSheet.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="GroupDlg.cpp">
+    <ClCompile Include="AssistantDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

@@ -4,6 +4,7 @@
 #include "stdafx.h"
 #include "编程助理.h"
 #include "MainDlg.h"
+#include "../capture/ScreenToolDlg.h"
 
 #pragma comment(lib, "skin/SkinPPWTL.lib")
 #pragma comment(lib, "version.lib")
@@ -137,6 +138,22 @@ BOOL CMainApp::InitInstance()
 	{
 		// 读取code文件路径
 		CodePath = CmdLine;
+	}
+
+	// 截屏工具
+	else if( CmdLine.Replace(_T("-Tool"), _T("")) || CmdLine.Replace(_T("-tool"), _T("")) )
+	{
+		CScreenToolDlg dlg;
+		dlg.IsExit = FALSE;
+		dlg.DoModal();
+
+		// 退出程序
+		if (pShellManager != NULL)
+		{
+			delete pShellManager;
+		}
+
+		return TRUE;
 	}
 
 	// 还原工作路径
