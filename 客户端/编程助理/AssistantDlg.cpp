@@ -18,8 +18,6 @@ CAssistantDlg::CAssistantDlg(CWnd* pParent /*=NULL*/)
 
 CAssistantDlg::~CAssistantDlg()
 {
-	//删除热键
-	UnregisterHotKey(m_hWnd, ID_HOTKEY_A);
 }
 
 void CAssistantDlg::DoDataExchange(CDataExchange* pDX)
@@ -46,7 +44,7 @@ BOOL CAssistantDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
 
-	// 读取窗口位置
+	// 读取自动隐藏
 	if( GetPrivateProfileInt(_T("Setting"), _T("AutoHide"), 1, _T("./Setting.ini")) == 1)
 	{
 		m_Hide.SetCheck(1);
@@ -346,6 +344,40 @@ void CAssistantDlg::OnFollowCheck()
 	{
 		::WritePrivateProfileString(_T("Setting"), _T("Follow"), _T("0"), _T("./Setting.ini"));
 	}
+}
+
+
+BOOL CAssistantDlg::DestroyWindow()
+{
+	//删除热键
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_A);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_B);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_C);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_D);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_E);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_F);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_G);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_H);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_I);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_J);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_K);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_L);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_M);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_N);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_O);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_P);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_Q);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_R);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_S);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_T);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_U);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_V);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_W);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_X);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_Y);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_Z);
+
+	return CDialogEx::DestroyWindow();
 }
 
 

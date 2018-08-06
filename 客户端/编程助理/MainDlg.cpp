@@ -631,11 +631,15 @@ void CMainDlg::OnCodeAssistant()
 
 	if(IsWindow(m_hWnd))
 	{
-		//::SendMessage(m_hWnd, WM_CLOSE, 0, 0);
-
 		if(m_hWnd == AfxGetApp()->GetMainWnd()->GetSafeHwnd() || m_hWnd == m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->GetSafeHwnd())
 		{
 			AfxMessageBox(_T("不能选择程序自身作为目标!"));
+			return;
+		}
+
+		if(m_pAssisDlg->TargetWnd == m_hWnd)
+		{
+			AfxMessageBox(_T("目标已选择, 无需再次选择目标!"));
 			return;
 		}
 
@@ -649,11 +653,12 @@ void CMainDlg::OnCodeAssistant()
 			delete m_pAssisDlg;
 		}
 
-		// 将目标窗口作为父对象创建助理对话框
+		// 新建对象
 		m_pAssisDlg = new CAssistantDlg;
+
+		// 将目标窗口作为父对象创建助理对话框
 		m_pAssisDlg->Create(IDD_ASSISTANT_DIALOG, FromHandle(m_hWnd));
 		m_pAssisDlg->CenterWindow();
-		m_pAssisDlg->ShowWindow(SW_HIDE);
 		m_pAssisDlg->TargetWnd = m_hWnd;
 		m_pAssisDlg->FilePath = _T("Code\\") + CurClass + _T("\\") + CurType;
 		m_pAssisDlg->OnSetCode();
@@ -670,15 +675,28 @@ void CMainDlg::OnCodeAssistant()
 			return;
 		}
 
-		//::SendMessage(m_curWnd, WM_CLOSE, 0, 0);
+		if(m_pAssisDlg->TargetWnd == m_curWnd)
+		{
+			AfxMessageBox(_T("目标已选择, 无需再次选择目标!"));
+			return;
+		}
 
 		// 最小化主窗口
 		ShowWindow(SW_MINIMIZE);
 
+		// 释放资源
+		if(m_pAssisDlg != NULL)
+		{
+			m_pAssisDlg->DestroyWindow();
+			delete m_pAssisDlg;
+		}
+
+		// 新建对象
+		m_pAssisDlg = new CAssistantDlg;
+
 		// 将目标窗口作为父对象创建助理对话框
 		m_pAssisDlg->Create(IDD_ASSISTANT_DIALOG, FromHandle(m_curWnd));
 		m_pAssisDlg->CenterWindow();
-		m_pAssisDlg->ShowWindow(SW_HIDE);
 		m_pAssisDlg->TargetWnd = m_curWnd;
 		m_pAssisDlg->FilePath = _T("Code\\") + CurClass + _T("\\") + CurType;
 		m_pAssisDlg->OnSetCode();

@@ -65,4 +65,5 @@ public:
 	afx_msg void OnDropdownCodeCombo();
 	afx_msg void OnHideCheck();
 	afx_msg void OnFollowCheck();
+	virtual BOOL DestroyWindow();
 };
