@@ -99,6 +99,32 @@ BOOL CProjectDlg::OnInitDialog()
 	// 刷新
 	Refresh();
 
+	// 提示框
+	m_toolTips.Create(this, TTS_ALWAYSTIP|WS_POPUP);
+	m_toolTips.Activate(TRUE);
+
+	m_toolTips.AddTool(GetDlgItem(IDC_PROJECT_LIST),   _T("显示所有项目的列表。\n鼠标右键可搜索目标项目。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_VERSION_LIST),   _T("显示选中项目所有版本的列表。\n鼠标右键可搜索目标版本。"));
+	m_toolTips.AddTool(GetDlgItem(IDOK),               _T("添加一个新项目。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_EDIT_BUTTON),    _T("编辑选中的项目。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_DELETE_BUTTON),  _T("删除选中的项目。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_ADD_BUTTON),     _T("添加选中项目的版本。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_RESTORE_BUTTON), _T("恢复选中项目的版本。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_MODIFY_BUTTON),  _T("编辑选中项目的版本。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_REMOVE_BUTTON),  _T("移除选中项目的版本。"));
+
+	//文字颜色
+	m_toolTips.SetTipTextColor(RGB(0,0,255));
+
+	//鼠标指向多久后显示提示，毫秒
+	m_toolTips.SetDelayTime(TTDT_INITIAL, 10); 
+
+	//鼠标保持指向，提示显示多久，毫秒
+	m_toolTips.SetDelayTime(TTDT_AUTOPOP, 9000000);
+
+	//设定显示宽度，超长内容自动换行
+	m_toolTips.SetMaxTipWidth(300);
+
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
 }
@@ -106,7 +132,9 @@ BOOL CProjectDlg::OnInitDialog()
 
 BOOL CProjectDlg::PreTranslateMessage(MSG* pMsg)
 {
-	// TODO: 在此添加专用代码和/或调用基类
+	// 功能提示
+	if(GetPrivateProfileInt(_T("Setting"), _T("Tip"), 0, _T("./Setting.ini")) == 1)
+		m_toolTips.RelayEvent(pMsg); // 接受消息响应
 
 	return CDialogEx::PreTranslateMessage(pMsg);
 }

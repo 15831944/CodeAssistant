@@ -13,6 +13,7 @@ public:
 	virtual ~CProjectDlg();
 
 	// 全局变量
+	CToolTipCtrl m_toolTips;
 	CString Name, Path, FilePath, TargetPath;
 
 	// 操作类型

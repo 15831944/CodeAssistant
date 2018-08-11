@@ -1,0 +1,33 @@
+HKCR
+{
+	OleImage.OleImage.1 = s 'OleImage Class'
+	{
+		CLSID = s '{2F8CF783-16DC-4B24-A046-2B0D61A6AFA9}'
+	}
+	OleImage.OleImage = s 'OleImage Class'
+	{		
+		CurVer = s 'OleImage.OleImage.1'
+	}
+	NoRemove CLSID
+	{
+		ForceRemove {2F8CF783-16DC-4B24-A046-2B0D61A6AFA9} = s 'OleImage Class'
+		{
+			ProgID = s 'OleImage.OleImage.1'
+			VersionIndependentProgID = s 'OleImage.OleImage'
+			ForceRemove Programmable
+			LocalServer32 = s '%MODULE%'
+			{
+				val ServerExecutable = s '%MODULE_RAW%'
+			}
+			val AppID = s '%APPID%'
+			ForceRemove Control
+			ForceRemove 'ToolboxBitmap32' = s '%MODULE%, 104'
+			MiscStatus = s '0'
+			{
+			    '1' = s '%OLEMISC%'
+			}
+			TypeLib = s '{BC1DBEB2-3514-4E05-A018-E52A763FDCDF}'
+			Version = s '1.0'
+		}
+	}
+}

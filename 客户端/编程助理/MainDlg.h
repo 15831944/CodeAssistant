@@ -27,6 +27,7 @@ public:
 	CSortListCtrl m_List;
 	CComboBox m_Class;
 	CComboBox m_Type;
+	CToolTipCtrl m_toolTips;
 
 	int TabCount;
 	CTabSheet m_Tab;
@@ -50,8 +51,8 @@ public:
 
 	void OnCopy(), OnPaste(), OnCut();
 	void OnOpen(), OnUndo(), OnRedo();
-	BOOL GetPic(REOBJECT FAR* pObject);
-	void SetPic(), OnImage(), OnScreenCapture();
+	void SetPic(), OnImage(), OnScreenCapture(), SavePic();
+	void SaveImage();
 	void OnLeft(), OnRight(), OnCenter();
 	int  static CountFile(CString DirPath);
 	void OnParagraph(), OnNone(), OnSymbol(), OnNumber();
@@ -80,6 +81,7 @@ public:
 	void DrawRectInWnd(LPRECT pRect);
 	void OnCodeAssistant();
 	void ClearScreen();
+	void OnChangeClassType(int Class, int Type);
 
 // 对话框数据
 	enum { IDD = IDD_MAIN_DIALOG };
@@ -101,7 +103,6 @@ protected:
 
 	CString UpDateInfo, Error, Msg, FilePath, FileName, FileClass, FileType;
 	BOOL IsNew, IsEdit;
-	IOleObject* m_pPicObj;
 
 	DECLARE_MESSAGE_MAP()
 public:
@@ -146,4 +147,5 @@ public:
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
 	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
 	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
+	afx_msg void OnIcon();
 };

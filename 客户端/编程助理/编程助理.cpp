@@ -6,6 +6,9 @@
 #include "MainDlg.h"
 #include "../capture/ScreenToolDlg.h"
 
+#include <initguid.h>
+#include "Animator_i.c"
+
 #pragma comment(lib, "skin/SkinPPWTL.lib")
 #pragma comment(lib, "version.lib")
 
@@ -51,6 +54,17 @@
     __asm _emit 0x64 \
     __asm _emit 0x00
 
+
+class CAnimatorModule :
+	public ATL::CAtlMfcModule
+{
+public:
+	DECLARE_LIBID(LIBID_AnimatorLib);
+	DECLARE_REGISTRY_APPID_RESOURCEID(IDR_ANIMATOR, "{94CC67BE-7446-4717-9751-BC2409621746}");
+};
+
+CAnimatorModule _AtlModule;
+
 // CMainApp
 
 BEGIN_MESSAGE_MAP(CMainApp, CWinApp)
@@ -95,11 +109,43 @@ BOOL CMainApp::InitInstance()
 
 	CWinApp::InitInstance();
 
+	//TODO: call AfxInitRichEdit2() to initialize richedit2 library.
+	AfxOleInit();
 
 	AfxEnableControlContainer();
 
 	// RichEdit初始化 call AfxInitRichEdit2() to initialize richedit2 library.
 	AfxInitRichEdit2();
+
+	// 分析标准 shell 命令、DDE、打开文件操作的命令行
+	CCommandLineInfo cmdInfo;
+	ParseCommandLine(cmdInfo);
+	#if !defined(_WIN32_WCE) || defined(_CE_DCOM)
+	// 通过 CoRegisterClassObject() 注册类工厂。
+	if (FAILED(_AtlModule.RegisterClassObjects(CLSCTX_LOCAL_SERVER, REGCLS_MULTIPLEUSE)))
+		return FALSE;
+	#endif // !defined(_WIN32_WCE) || defined(_CE_DCOM)
+	// 应用程序是用 /Embedding 或 /Automation 开关启动的。
+	// 将应用程序作为自动化服务器运行。
+	if (cmdInfo.m_bRunEmbedded || cmdInfo.m_bRunAutomated)
+	{
+		// 不显示主窗口
+		return TRUE;
+	}
+	// 应用程序是用 /Unregserver 或 /Unregister 开关启动的。
+	if (cmdInfo.m_nShellCommand == CCommandLineInfo::AppUnregister)
+	{
+		_AtlModule.UpdateRegistryAppId(FALSE);
+		_AtlModule.UnregisterServer(TRUE);
+		return FALSE;
+	}
+	// 应用程序是用 /Register 或 /Regserver 开关启动的。
+	if (cmdInfo.m_nShellCommand == CCommandLineInfo::AppRegister)
+	{
+		_AtlModule.UpdateRegistryAppId(TRUE);
+		_AtlModule.RegisterServer(TRUE);
+		return FALSE;
+	}
 
 	// 创建 shell 管理器，以防对话框包含
 	// 任何 shell 树视图控件或 shell 列表视图控件。
@@ -113,6 +159,10 @@ BOOL CMainApp::InitInstance()
 	// TODO: 应适当修改该字符串，
 	// 例如修改为公司或组织名
 	// SetRegistryKey(_T("应用程序向导生成的本地应用程序"));
+
+	ULONG_PTR m_ulToken;
+	GdiplusStartupInput input;
+	GdiplusStartup(&m_ulToken, &input, NULL);
 
 	// 得到程序运行目录
 	CString CurDir = GetModuleDir();
@@ -182,6 +232,13 @@ BOOL CMainApp::InitInstance()
 	{
 		delete pShellManager;
 	}
+
+	// 卸载皮肤
+	skinppExitSkin();
+
+	// 卸载GDI+
+	GdiplusShutdown(m_ulToken);
+	return CWinApp::ExitInstance();
 
 	// 由于对话框已关闭，所以将返回 FALSE 以便退出应用程序，
 	//  而不是启动应用程序的消息泵。
@@ -412,8 +469,5 @@ CString CMainApp::GetWorkDir()
 //  退出应用程序
 int CMainApp::ExitInstance()
 {
-	// 卸载皮肤
-	skinppExitSkin();
-
 	return CWinApp::ExitInstance();
 }

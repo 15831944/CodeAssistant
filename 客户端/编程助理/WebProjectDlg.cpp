@@ -134,6 +134,43 @@ BOOL CWebProjectDlg::OnInitDialog()
 	// 刷新数据
 	OnOK();
 
+	// 提示框
+	m_toolTips.Create(this, TTS_ALWAYSTIP|WS_POPUP);
+	m_toolTips.Activate(TRUE);
+
+	// 提示文字
+	m_toolTips.AddTool(GetDlgItem(IDC_ASSISTANT_RADIO),   _T("选中此项将切换助理云端数据源。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_GITHUB_RADIO),      _T("选中此项将切换助理云端数据源。\n暂不开放此功能。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_GITEE_RADIO),       _T("选中此项将切换助理云端数据源。\n暂不开放此功能。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_SOURCEFORGE_RADIO), _T("选中此项将切换助理云端数据源。\n暂不开放此功能。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_GOOGLE_RADIO),      _T("选中此项将切换助理云端数据源。\n暂不开放此功能。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_USER_EDIT),         _T("在此输入仓库的用户名称。\n暂不开放此功能。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_PASSWORD_EDIT),     _T("在此输入仓库的用户密码。\n暂不开放此功能。"));
+	m_toolTips.AddTool(GetDlgItem(IDOK),                  _T("根据选择的数据源刷新云端项目数据。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_PROJECT_LIST),      _T("显示当前视图下所有云端项目数据。\n鼠标右键可搜索目标项目。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_VERSION_LIST),      _T("显示当前视图下选中项目的版本数据。\n鼠标右键可搜索目标版本。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_NEW_BUTTON),        _T("添加一个新项目至云端。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_EDIT_BUTTON),       _T("编辑选中的云端项目。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_DELETE_BUTTON),     _T("从云端项目删除选中项目。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_SWITCH__BUTTON),    _T("切换云端项目视图类型。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_ADD_BUTTON),        _T("为当前项目添加一个版本。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_MERGE_BUTTON),      _T("合并选中的版本数据。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_MODIFY_BUTTON),     _T("编辑选中的版本数据。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_REMOVE_BUTTON),     _T("移除选中的版本数据。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_CLONE_BUTTON),      _T("克隆选中的版本数据。"));
+
+	//文字颜色
+	m_toolTips.SetTipTextColor(RGB(0,0,255));
+
+	//鼠标指向多久后显示提示，毫秒
+	m_toolTips.SetDelayTime(TTDT_INITIAL, 10); 
+
+	//鼠标保持指向，提示显示多久，毫秒
+	m_toolTips.SetDelayTime(TTDT_AUTOPOP, 9000000);
+
+	//设定显示宽度，超长内容自动换行
+	m_toolTips.SetMaxTipWidth(300);
+
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
 }
@@ -141,7 +178,9 @@ BOOL CWebProjectDlg::OnInitDialog()
 
 BOOL CWebProjectDlg::PreTranslateMessage(MSG* pMsg)
 {
-	// TODO: 在此添加专用代码和/或调用基类
+	// 功能提示
+	if(GetPrivateProfileInt(_T("Setting"), _T("Tip"), 0, _T("./Setting.ini")) == 1)
+		m_toolTips.RelayEvent(pMsg); // 接受消息响应
 
 	return CDialogEx::PreTranslateMessage(pMsg);
 }

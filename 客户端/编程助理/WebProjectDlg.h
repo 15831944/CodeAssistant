@@ -43,6 +43,7 @@ public:
 
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV Ö§³Ö
+	CToolTipCtrl m_toolTips;
 
 	DECLARE_MESSAGE_MAP()
 public:

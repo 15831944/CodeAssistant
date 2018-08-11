@@ -53,8 +53,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>..\bin\debug\</OutDir>
-    <IntDir>..\obj\Debug\clzma\</IntDir>
+    <OutDir>..\..\bin\debug\</OutDir>
+    <IntDir>..\..\obj\Debug\clzma\</IntDir>
     <TargetName>clzma</TargetName>
     <TargetExt>.lib</TargetExt>
   </PropertyGroup>

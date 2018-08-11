@@ -1,0 +1,45 @@
+// Animator.idl : Animator 的 IDL 源
+//
+
+// 此文件将由 MIDL 工具处理以
+// 产生类型库(Animator.tlb)和封送处理代码。
+
+#include "olectl.h"
+import "oaidl.idl";
+import "ocidl.idl";
+
+[
+	object,
+	uuid(300E8ADA-AC70-4111-BD19-BB059CCC1C56),
+	dual,
+	nonextensible,
+	pointer_default(unique)
+]
+interface IOleImage : IDispatch{
+};
+
+[
+	uuid(BC1DBEB2-3514-4E05-A018-E52A763FDCDF),
+	version(1.0)	
+]
+library AnimatorLib
+{
+	importlib("stdole2.tlb");
+	[
+		uuid(62AAA53A-6F3F-46D3-BAE4-12BEE708A4A0)		
+	]
+	dispinterface _IOleImageEvents
+	{
+		properties:
+		methods:
+	};
+	[
+		uuid(2F8CF783-16DC-4B24-A046-2B0D61A6AFA9),		
+		control
+	]
+	coclass OleImage
+	{
+		[default] interface IOleImage;
+		[default, source] dispinterface _IOleImageEvents;
+	};
+};

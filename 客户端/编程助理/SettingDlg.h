@@ -23,6 +23,7 @@ protected:
 	CComboBox m_Skin;
 	CString SkinName;
 	int Associate;
+	CToolTipCtrl m_toolTips;
 
 	DECLARE_MESSAGE_MAP()
 public:

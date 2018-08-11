@@ -29,6 +29,11 @@
 #define ID_HOTKEY_Y 6024
 #define ID_HOTKEY_Z 6025
 
+#define ID_HOTKEY_LEFT  6026
+#define ID_HOTKEY_RIGHT 6027
+#define ID_HOTKEY_UP    6028
+#define ID_HOTKEY_DOWN  6029
+
 
 // CAssistantDlg 对话框
 
@@ -41,16 +46,21 @@ public:
 	virtual ~CAssistantDlg();
 
 	void OnSetCode();
+	void OnOversee();
 
 // 对话框数据
 	enum { IDD = IDD_ASSISTANT_DIALOG };
 
 	// 成员变量
 	HWND TargetWnd;
+	BOOL IsCreated;
 	CButton m_Hide;
 	CButton m_Follow;
 	CAutoCombox m_ComboBox;
-	CString FilePath;
+	CString FileClass, FileType, FilePath;
+
+	// 工作者线程
+	static UINT Operate(LPVOID pParam);
 
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持

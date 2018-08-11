@@ -80,6 +80,7 @@ CMainDlg::CMainDlg(CWnd* pParent /*=NULL*/)
 	// 编码助理
 	m_hCursor = AfxGetApp()->LoadCursor(IDC_TARGET_CURSOR);
 	m_pAssisDlg = new CAssistantDlg;
+	m_pAssisDlg->IsCreated = FALSE;
 	m_preWnd = NULL;
 	m_curWnd = NULL;
 	m_bSnap = FALSE;
@@ -152,6 +153,7 @@ BEGIN_MESSAGE_MAP(CMainDlg, CDialogEx)
 	ON_COMMAND(104, &CMainDlg::OnNewCode)
 	ON_COMMAND(105, &CMainDlg::SetPic)
 	ON_COMMAND(106, &CMainDlg::OnNewLabel)
+	ON_COMMAND(107, &CMainDlg::SaveImage)
 
 	ON_COMMAND(IDM_OPEN,   &CMainDlg::OnOpen)
 	ON_COMMAND(IDM_SAVE,   &CMainDlg::OnOK)
@@ -169,6 +171,7 @@ BEGIN_MESSAGE_MAP(CMainDlg, CDialogEx)
 
 	ON_COMMAND(IDM_IMAGE,   &CMainDlg::OnImage)
 	ON_COMMAND(IDM_CAPTURE, &CMainDlg::OnScreenCapture)
+	ON_COMMAND(IDM_SAVEIMG, &CMainDlg::SavePic)
 	
 	ON_COMMAND(IDM_FONT,   &CMainDlg::OnFont)
 
@@ -188,6 +191,7 @@ BEGIN_MESSAGE_MAP(CMainDlg, CDialogEx)
 	ON_WM_LBUTTONDOWN()
 	ON_WM_LBUTTONUP()
 	ON_WM_MOUSEMOVE()
+	ON_STN_CLICKED(IDC_ICON_STATIC, &CMainDlg::OnIcon)
 END_MESSAGE_MAP()
 
 
@@ -325,6 +329,43 @@ BOOL CMainDlg::OnInitDialog()
 	SetWindowText(_T("紫影龙编程助理 ") + theApp.GetApplicationVersion());
 	OnCheck();
 
+	// 提示框
+	m_toolTips.Create(this, TTS_ALWAYSTIP|WS_POPUP);
+	m_toolTips.Activate(TRUE);
+
+	// 提示文字
+	m_toolTips.AddTool(GetDlgItem(IDC_CLASS_COMBO),            _T("选择或输入方法的类型。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_TYPE_COMBO),             _T("选择或输入方法的类别。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_SAVE_BUTTON),            _T("保存输入的类型与类别。"));
+	
+	m_toolTips.AddTool(GetDlgItem(IDC_DELETE_BUTTON),          _T("删除当前选中的类型类别。\n若选择是则删除当前类型与类别。\n选择否只删除类别。\n取消则无操作。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_EDIT_BUTTON),            _T("编辑当前选中类型与类别。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_MANAGER_BUTTON),         _T("打开本地的项目管理系统。"));
+
+	m_toolTips.AddTool(GetDlgItem(IDC_ICON_STATIC),            _T("选择快速编码助理的目标窗口。\n选中窗口后主界面会最小化。\n按下Atl+方法的首字母调出编码助理。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_CODE_LIST),              _T("显示当前分类下的方法。\n单击鼠标右键可搜索目标方法。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_DOCUMENT_TAB),           _T("将不同的方法显示在不同的标签里。\n鼠标左键单击切换标签。\n右键单击或者按下Esc关闭当前选中标签。\n在方法里单击右键可调出右键菜单。"));
+	m_toolTips.AddTool(GetDlgItem(IDOK),                       _T("保存当前方法。\n新方法则是另存为。\n快捷键: Ctrl + S。"));
+
+	m_toolTips.AddTool(GetDlgItem(IDC_NEW_BUTTON),             _T("在新标签里新建一个方法。\n快捷键: Ctrl + N。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_FONT_BUTTON),            _T("设置当前方法的字体。\n快捷键: Ctrl + F。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_DIRECTORY_BUTTON),       _T("打开当前方法的依赖文件目录。\n快捷键: Ctrl + D。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_REMOVE_BUTTON),          _T("移除当前的方法。\n移除后无法恢复。\n快捷键: Ctrl + R。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_SYNCHRONIZATION_BUTTON), _T("输入助理云端账户登陆助理云端。\n快捷键: Ctrl + Y。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_SETTING_BUTTON),         _T("打开助理设置并修改助理设置。\n快捷键: Ctrl + K。"));
+
+	//文字颜色
+	m_toolTips.SetTipTextColor(RGB(0,0,255));
+
+	//鼠标指向多久后显示提示，毫秒
+	m_toolTips.SetDelayTime(TTDT_INITIAL, 10); 
+
+	//鼠标保持指向，提示显示多久，毫秒
+	m_toolTips.SetDelayTime(TTDT_AUTOPOP, 9000000);
+
+	//设定显示宽度，超长内容自动换行
+	m_toolTips.SetMaxTipWidth(300);
+
 	//vmprotect 标记结束处.
 	VMPEND
 
@@ -336,6 +377,10 @@ BOOL CMainDlg::OnInitDialog()
 BOOL CMainDlg::PreTranslateMessage(MSG* pMsg)
 {
 	VMPBEGIN
+
+	// 功能提示
+	if(GetPrivateProfileInt(_T("Setting"), _T("Tip"), 0, _T("./Setting.ini")) == 1)
+		m_toolTips.RelayEvent(pMsg); // 接受消息响应
 
 	// 键盘消息处理
 	UINT  nKeyCode = pMsg->wParam; // virtual key code of the key pressed
@@ -436,6 +481,27 @@ BOOL CMainDlg::PreTranslateMessage(MSG* pMsg)
 		if ( (nKeyCode == _T('M') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
 		{
 			OnCenter();
+			return true;
+		}
+
+		// Ctrl + L (导出选中图片)
+		if ( (nKeyCode == _T('L') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
+		{
+			SavePic();
+			return true;
+		}
+
+		// Ctrl + Y (云端同步)
+		if ( (nKeyCode == _T('Y') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
+		{
+			OnSynchronization();
+			return true;
+		}
+
+		// Ctrl + K (助理设置)
+		if ( (nKeyCode == _T('K') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
+		{
+			OnSetting();
 			return true;
 		}
 
@@ -591,25 +657,32 @@ void CMainDlg::SnapWindow(POINT point)
 }
 
 
-void CMainDlg::OnLButtonDown(UINT nFlags, CPoint point)
+void CMainDlg::OnIcon()
 {
 	SetCursor(m_hCursor);
 	SetCapture();
 	m_bSnap = TRUE;
+}
 
+
+void CMainDlg::OnLButtonDown(UINT nFlags, CPoint point)
+{
 	CDialogEx::OnLButtonDown(nFlags, point);
 }
 
 
 void CMainDlg::OnLButtonUp(UINT nFlags, CPoint point)
 {
-	ReleaseCapture();
-	ClearScreen();
-	OnCodeAssistant();
+	if(m_bSnap)
+	{
+		ReleaseCapture();
+		ClearScreen();
+		OnCodeAssistant();
 
-	m_preWnd = NULL;
-	m_curWnd = NULL;
-	m_bSnap = FALSE;
+		m_preWnd = NULL;
+		m_curWnd = NULL;
+		m_bSnap = FALSE;
+	}
 
 	CDialogEx::OnLButtonUp(nFlags, point);
 }
@@ -639,7 +712,7 @@ void CMainDlg::OnCodeAssistant()
 
 		if(m_pAssisDlg->TargetWnd == m_hWnd)
 		{
-			AfxMessageBox(_T("目标已选择, 无需再次选择目标!"));
+			AfxMessageBox(_T("目标已选择, 无需再次选择相同目标!"));
 			return;
 		}
 
@@ -650,34 +723,33 @@ void CMainDlg::OnCodeAssistant()
 		if(m_pAssisDlg != NULL)
 		{
 			m_pAssisDlg->DestroyWindow();
-			delete m_pAssisDlg;
+			m_pAssisDlg->IsCreated = FALSE;
 		}
-
-		// 新建对象
-		m_pAssisDlg = new CAssistantDlg;
 
 		// 将目标窗口作为父对象创建助理对话框
 		m_pAssisDlg->Create(IDD_ASSISTANT_DIALOG, FromHandle(m_hWnd));
 		m_pAssisDlg->CenterWindow();
+		m_pAssisDlg->IsCreated = TRUE;
 		m_pAssisDlg->TargetWnd = m_hWnd;
-		m_pAssisDlg->FilePath = _T("Code\\") + CurClass + _T("\\") + CurType;
+		m_pAssisDlg->FileClass = CurClass;
+		m_pAssisDlg->FileType  = CurType;
+		m_pAssisDlg->FilePath  = _T("Code\\") + CurClass + _T("\\") + CurType;
 		m_pAssisDlg->OnSetCode();
+		m_pAssisDlg->OnOversee();
 	}
 	else
 	{
-		// 不是窗口就返回
-		if(IsWindow(m_curWnd))
-			return;
-
-		if(m_curWnd == AfxGetApp()->GetMainWnd()->GetSafeHwnd() || m_hWnd == m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->GetSafeHwnd())
+		// 赋值为子窗口对象
+		m_hWnd = m_curWnd;
+		if(m_hWnd == AfxGetApp()->GetMainWnd()->GetSafeHwnd() || m_hWnd == m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->GetSafeHwnd())
 		{
 			AfxMessageBox(_T("不能选择程序自身作为目标!"));
 			return;
 		}
 
-		if(m_pAssisDlg->TargetWnd == m_curWnd)
+		if(m_pAssisDlg->TargetWnd == m_hWnd)
 		{
-			AfxMessageBox(_T("目标已选择, 无需再次选择目标!"));
+			AfxMessageBox(_T("目标已选择, 无需再次选择相同目标!"));
 			return;
 		}
 
@@ -688,18 +760,218 @@ void CMainDlg::OnCodeAssistant()
 		if(m_pAssisDlg != NULL)
 		{
 			m_pAssisDlg->DestroyWindow();
-			delete m_pAssisDlg;
+			m_pAssisDlg->IsCreated = FALSE;
 		}
 
-		// 新建对象
-		m_pAssisDlg = new CAssistantDlg;
-
 		// 将目标窗口作为父对象创建助理对话框
-		m_pAssisDlg->Create(IDD_ASSISTANT_DIALOG, FromHandle(m_curWnd));
+		m_pAssisDlg->Create(IDD_ASSISTANT_DIALOG, FromHandle(m_hWnd));
 		m_pAssisDlg->CenterWindow();
-		m_pAssisDlg->TargetWnd = m_curWnd;
-		m_pAssisDlg->FilePath = _T("Code\\") + CurClass + _T("\\") + CurType;
+		m_pAssisDlg->IsCreated = TRUE;
+		m_pAssisDlg->TargetWnd = m_hWnd;
+		m_pAssisDlg->FileClass = CurClass;
+		m_pAssisDlg->FileType  = CurType;
+		m_pAssisDlg->FilePath  = _T("Code\\") + CurClass + _T("\\") + CurType;
 		m_pAssisDlg->OnSetCode();
+		m_pAssisDlg->OnOversee();
+	}
+}
+
+
+void CMainDlg::OnChangeClassType(int Class, int Type)
+{
+	if(Class > 0)
+	{
+		int CurClass = m_Class.GetCurSel();
+		if(CurClass >= 0)
+		{
+			m_Class.SetCurSel(CurClass + 1);
+
+			m_Type.ResetContent();
+
+			CString Class;
+			m_Class.GetWindowText(Class);
+			CString FilePath = _T("Code\\") + Class;
+
+			this->CurClass = Class;
+
+			CFileFind Finder;
+			BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+			while (IsFind)
+			{
+				IsFind = Finder.FindNextFile();
+
+				if (Finder.IsDots())
+					continue;
+				if (Finder.IsDirectory())
+					m_Type.AddString(Finder.GetFileName());
+			}
+
+			// 设置ComboBox
+			m_Type.SetCurSel(0);
+
+			// 清空列表
+			m_List.DeleteAllItems();
+
+			CString pType;
+			m_Type.GetWindowText(pType);
+			FilePath = _T("Code\\") + Class + _T("\\") + pType;
+
+			this->CurType = pType;
+
+			IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+			while (IsFind)
+			{
+				IsFind = Finder.FindNextFile();
+
+				if (Finder.IsDots())
+					continue;
+				if (Finder.IsDirectory())
+					continue;
+				else
+				{
+					CString Name = Finder.GetFileName();
+					m_List.AddItem(Name.Left(Name.GetLength() - 5));
+				}
+			}
+			::SendMessage(this->GetSafeHwnd(), WM_CHILDMESSAGE, 22, 0);
+		}
+	}
+	else if(Class < 0)
+	{
+		int CurClass = m_Class.GetCurSel();
+		if(CurClass > 0)
+		{
+			m_Class.SetCurSel(CurClass - 1);
+
+			m_Type.ResetContent();
+
+			CString Class;
+			m_Class.GetWindowText(Class);
+			CString FilePath = _T("Code\\") + Class;
+
+			this->CurClass = Class;
+
+			CFileFind Finder;
+			BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+			while (IsFind)
+			{
+				IsFind = Finder.FindNextFile();
+
+				if (Finder.IsDots())
+					continue;
+				if (Finder.IsDirectory())
+					m_Type.AddString(Finder.GetFileName());
+			}
+
+			// 设置ComboBox
+			m_Type.SetCurSel(0);
+
+			// 设置ComboBox
+			m_Type.SetCurSel(0);
+
+			// 清空列表
+			m_List.DeleteAllItems();
+
+			CString pType;
+			m_Type.GetWindowText(pType);
+			FilePath = _T("Code\\") + Class + _T("\\") + pType;
+
+			this->CurType = pType;
+
+			IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+			while (IsFind)
+			{
+				IsFind = Finder.FindNextFile();
+
+				if (Finder.IsDots())
+					continue;
+				if (Finder.IsDirectory())
+					continue;
+				else
+				{
+					CString Name = Finder.GetFileName();
+					m_List.AddItem(Name.Left(Name.GetLength() - 5));
+				}
+			}
+			::SendMessage(this->GetSafeHwnd(), WM_CHILDMESSAGE, 22, 0);
+		}
+	}
+
+	if(Type > 0)
+	{
+		int CurType = m_Type.GetCurSel();
+		if(CurType >= 0)
+		{
+			m_Type.SetCurSel(CurType + 1);
+
+			// 清空列表
+			m_List.DeleteAllItems();
+
+			CString Class, Type;
+			m_Class.GetWindowText(Class);
+			m_Type.GetWindowText(Type);
+			CString FilePath = _T("Code\\") + Class + _T("\\") + Type;
+
+			// 设置当前数据
+			this->CurClass = Class;
+			this->CurType = Type;
+
+			CFileFind Finder;
+			BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+			while (IsFind)
+			{
+				IsFind = Finder.FindNextFile();
+
+				if (Finder.IsDots())
+					continue;
+				if (Finder.IsDirectory())
+					continue;
+				else
+				{
+					CString Name = Finder.GetFileName();
+					m_List.AddItem(Name.Left(Name.GetLength() - 5));
+				}
+			}
+			::SendMessage(this->GetSafeHwnd(), WM_CHILDMESSAGE, 22, 0);
+		}
+	}
+	else if(Type < 0)
+	{
+		int CurType = m_Type.GetCurSel();
+		if(CurType > 0)
+		{
+			m_Type.SetCurSel(CurType - 1);
+
+			// 清空列表
+			m_List.DeleteAllItems();
+
+			CString Class, Type;
+			m_Class.GetWindowText(Class);
+			m_Type.GetWindowText(Type);
+			CString FilePath = _T("Code\\") + Class + _T("\\") + Type;
+
+			// 设置当前数据
+			this->CurClass = Class;
+			this->CurType = Type;
+
+			CFileFind Finder;
+			BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
+			while (IsFind)
+			{
+				IsFind = Finder.FindNextFile();
+
+				if (Finder.IsDots())
+					continue;
+				if (Finder.IsDirectory())
+					continue;
+				else
+				{
+					CString Name = Finder.GetFileName();
+					m_List.AddItem(Name.Left(Name.GetLength() - 5));
+				}
+			}
+			::SendMessage(this->GetSafeHwnd(), WM_CHILDMESSAGE, 22, 0);
+		}
 	}
 }
 
@@ -807,53 +1079,94 @@ LRESULT CMainDlg::OnMessageChild(WPARAM wParam, LPARAM lParam)
 		break;
 
 	case 22:
-		m_pAssisDlg->FilePath = _T("Code\\") + CurClass + _T("\\") + CurType;
-		m_pAssisDlg->OnSetCode();
+		if(m_pAssisDlg->IsCreated)
+		{
+			m_pAssisDlg->FileClass= CurClass;
+			m_pAssisDlg->FileType = CurType;
+			m_pAssisDlg->FilePath = _T("Code\\") + CurClass + _T("\\") + CurType;
+			m_pAssisDlg->OnSetCode();
+		}
 		break;
 
 	case 23:
-		CString Target = (LPCTSTR)lParam;
-		CString Code = theApp.CodePath = _T("Code\\") + CurClass + _T("\\") + CurType + _T("\\") + Target + _T(".code");
-
-		// 新建标签
-		FileClass = _T("");
-		FileType  = _T("");
-		FileName  = Target;
-		FilePath  = Code;
-		SendMessage(WM_COMMAND, 106);
-
-		// 标记外部方法
-		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->IsOutFunction = TRUE;
-
-		// 解压缩编码
-		Uncompress(Code, Code.Left(Code.GetLength() -5) + _T(".rtf"));
-
-		// 读取rtf文件
-		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.StreamInFromResource(Code.Left(Code.GetLength() -5) + _T(".rtf"), _T("SF_RTF"));
-
-		// 删除原文件
-		DeleteFile(Code.Left(Code.GetLength() -5) + _T(".rtf"));
-
-		// 复制内容
-		CString Source;
-		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetWindowText(Source);
-
-		//put   your   text   in   source
-		if(OpenClipboard())
 		{
-			HGLOBAL   clipbuffer;
-			char   *   buffer;
-			EmptyClipboard();
-			clipbuffer   =   GlobalAlloc(GMEM_DDESHARE,   Source.GetLength() +1);
-			buffer   =   (char*)GlobalLock(clipbuffer);
-			strcpy_s(buffer, 65535 ,LPCSTR((CStringA)Source));
-			GlobalUnlock(clipbuffer);
-			SetClipboardData(CF_TEXT,clipbuffer);
-			CloseClipboard();
-		}
+			CString Target = (LPCTSTR)lParam;
+			CString Code = theApp.CodePath = _T("Code\\") + CurClass + _T("\\") + CurType + _T("\\") + Target + _T(".code");
 
-		// 关闭标签
-		m_Tab.OnRButtonDown(NULL, NULL);
+			// 新建标签
+			FileClass = _T("");
+			FileType  = _T("");
+			FileName  = Target;
+			FilePath  = Code;
+			SendMessage(WM_COMMAND, 106);
+
+			// 标记外部方法
+			m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->IsOutFunction = TRUE;
+
+			// 解压缩编码
+			Uncompress(Code, Code.Left(Code.GetLength() -5) + _T(".rtf"));
+
+			// 读取rtf文件
+			m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.StreamInFromResource(Code.Left(Code.GetLength() -5) + _T(".rtf"), _T("SF_RTF"));
+
+			// 删除原文件
+			DeleteFile(Code.Left(Code.GetLength() -5) + _T(".rtf"));
+
+			// 复制内容
+			CString Source;
+			m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetWindowText(Source);
+
+			//put   your   text   in   source
+			if(OpenClipboard())
+			{
+				HGLOBAL   clipbuffer;
+				char   *   buffer;
+				EmptyClipboard();
+				clipbuffer   =   GlobalAlloc(GMEM_DDESHARE,   Source.GetLength() +1);
+				buffer   =   (char*)GlobalLock(clipbuffer);
+				strcpy_s(buffer, 65535 ,LPCSTR((CStringA)Source));
+				GlobalUnlock(clipbuffer);
+				SetClipboardData(CF_TEXT,clipbuffer);
+				CloseClipboard();
+			}
+
+			// 关闭标签
+			m_Tab.OnRButtonDown(NULL, NULL);
+		}
+		break;
+
+	case 24:
+		OnChangeClassType(-1, 0);
+		break;
+
+	case 25:
+		OnChangeClassType(1, 0);
+		break;
+
+	case 26:
+		OnChangeClassType(0, -1);
+		break;
+
+	case 27:
+		OnChangeClassType(0, 1);
+		break;
+
+	case 28:
+		for(int i=0; i<TabCount; i++)
+		{
+			m_Tab.m_DocumentTab.at(i)->m_Edit.SetTargetDevice(NULL, lParam);
+		}break;
+
+	case 29:
+		SavePic();
+		break;
+
+	case 30:
+		OnSynchronization();
+		break;
+
+	case 31:
+		OnSetting();
 		break;
 	}
 
@@ -865,7 +1178,7 @@ LRESULT CMainDlg::OnMessageChild(WPARAM wParam, LPARAM lParam)
 UINT CMainDlg::Operate(LPVOID pParam)
 {
 	// 窗口指针
-	CMainDlg * pWnd = ((CMainDlg*)pParam);
+	CMainDlg * pWnd = (CMainDlg*)pParam;
 
 	// 异常捕获
 	try
@@ -1203,6 +1516,7 @@ read:
 
 				// 设置当前数据
 				pWnd->CurClass = Class;
+				pWnd->CurType  = _T("");
 
 				CFileFind Finder;
 				BOOL IsFind = Finder.FindFile(FilePath + _T("./*.*"));
@@ -1218,6 +1532,9 @@ read:
 
 				// 设置ComboBox
 				pWnd->m_Type.SetCurSel(0);
+
+				// 子消息
+				pWnd->SendMessage(WM_CHILDMESSAGE, 22, 0);
 			}break;
 
 		case 4:
@@ -1281,6 +1598,9 @@ read:
 						pWnd->m_List.AddItem(Name.Left(Name.GetLength() - 5));
 					}
 				}
+
+				// 子消息
+				pWnd->SendMessage(WM_CHILDMESSAGE, 22, 0);
 			}break;
 
 		case 6:
@@ -1820,8 +2140,12 @@ read:
 
 			case 12:
 			{
-				CString sFilter = _T("Bmp Files(*.bmp)|*.bmp||");
+				CString sFilter = _T("Picture Files(*.*)|*.bmp;*.jpg;*.jpeg;*.gif;*.png;*.ico;||");
 				CFileDialog dlg(TRUE,0,0, OFN_NOCHANGEDIR | OFN_ENABLEHOOK | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_ENABLESIZING| OFN_FILEMUSTEXIST ,(LPCTSTR)sFilter, pWnd);
+
+				OPENFILENAME &ofn = dlg.GetOFN();
+				ofn.lpstrTitle = _T("选择图片");
+
 				if(dlg.DoModal()==IDOK)
 				{
 					pWnd->FilePath = dlg.GetPathName();
@@ -1829,8 +2153,7 @@ read:
 					// 插入图片
 					pWnd->PostMessage(WM_COMMAND, 105);
 				}
-
-				pWnd->m_pPicObj = NULL;
+				
 			}break;
 
 			case 13:
@@ -1884,21 +2207,38 @@ read:
 
 					// 显示工具
 					CScreenToolDlg dlg;
-					INT_PTR nResponse = dlg.DoModal();
+					if(dlg.DoModal() == IDOK)
+					{
+						// 粘贴截屏
+						pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.Paste();
+					}
 
 					// 显示主窗口
 					pWnd->ShowWindow(SW_SHOW);
 
 					// 窗口置顶
 					pWnd->SetForegroundWindow();
-
-					// 粘贴截屏
-					if(nResponse == IDOK)
-						pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.Paste();
 				}
 				catch(...)
 				{
 					AfxMessageBox(_T("发生了未知异常，位于第14号线程!"));
+				}
+			}break;
+
+		  case 15:
+			{
+				CString sFilter = _T("Picture Files(*.*)|*.bmp;*.jpg;*.jpeg;*.gif;*.png;*.ico;||");
+				CFileDialog dlg(FALSE,0,0, OFN_NOCHANGEDIR | OFN_ENABLEHOOK | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_ENABLESIZING| OFN_FILEMUSTEXIST ,(LPCTSTR)sFilter, pWnd);
+
+				OPENFILENAME &ofn = dlg.GetOFN();
+				ofn.lpstrTitle = _T("保存图片");
+
+				if(dlg.DoModal()==IDOK)
+				{
+					pWnd->FilePath = dlg.GetPathName();
+
+					// 保存图片
+					pWnd->PostMessage(WM_COMMAND, 107);
 				}
 			}break;
 		}
@@ -2256,20 +2596,22 @@ void CMainDlg::OnNewCode()
 
 void CMainDlg::OnCopy()
 {
-	CString   source = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetSelText();     
-	//put   your   text   in   source   
-	if(OpenClipboard())   
-	{   
-		HGLOBAL   clipbuffer;   
-		char   *   buffer;   
-		EmptyClipboard();   
-		clipbuffer   =   GlobalAlloc(GMEM_DDESHARE,   source.GetLength() +1);
-		buffer   =   (char*)GlobalLock(clipbuffer);
-		strcpy_s(buffer, 65535 ,LPCSTR((CStringA)source));
-		GlobalUnlock(clipbuffer);   
-		SetClipboardData(CF_TEXT,clipbuffer);   
-		CloseClipboard();   
-	}
+	//CString   source = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetSelText();     
+	////put   your   text   in   source   
+	//if(OpenClipboard())   
+	//{   
+	//	HGLOBAL   clipbuffer;   
+	//	char   *   buffer;   
+	//	EmptyClipboard();   
+	//	clipbuffer   =   GlobalAlloc(GMEM_DDESHARE,   source.GetLength() +1);
+	//	buffer   =   (char*)GlobalLock(clipbuffer);
+	//	strcpy_s(buffer, 65535 ,LPCSTR((CStringA)source));
+	//	GlobalUnlock(clipbuffer);   
+	//	SetClipboardData(CF_TEXT,clipbuffer);   
+	//	CloseClipboard();   
+	//}
+
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.Copy();
 }
 
 
@@ -2284,22 +2626,23 @@ void CMainDlg::OnPaste()
 
 void CMainDlg::OnCut()
 {
-	CString   source = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetSelText();     
-	//put   your   text   in   source   
-	if(OpenClipboard())   
-	{   
-		HGLOBAL   clipbuffer;   
-		char   *   buffer;   
-		EmptyClipboard();   
-		clipbuffer   =   GlobalAlloc(GMEM_DDESHARE,   source.GetLength() +1);
-		buffer   =   (char*)GlobalLock(clipbuffer);
-		strcpy_s(buffer, 65535 ,LPCSTR((CStringA)source));
-		GlobalUnlock(clipbuffer);   
-		SetClipboardData(CF_TEXT,clipbuffer);   
-		CloseClipboard();   
-	}
+	//CString   source = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetSelText();     
+	////put   your   text   in   source   
+	//if(OpenClipboard())   
+	//{   
+	//	HGLOBAL   clipbuffer;   
+	//	char   *   buffer;   
+	//	EmptyClipboard();   
+	//	clipbuffer   =   GlobalAlloc(GMEM_DDESHARE,   source.GetLength() +1);
+	//	buffer   =   (char*)GlobalLock(clipbuffer);
+	//	strcpy_s(buffer, 65535 ,LPCSTR((CStringA)source));
+	//	GlobalUnlock(clipbuffer);   
+	//	SetClipboardData(CF_TEXT,clipbuffer);   
+	//	CloseClipboard();   
+	//}
 
 	// 剪切
+
 	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.Cut();
 }
 
@@ -2370,131 +2713,95 @@ void CMainDlg::OnCenter()
 }
 
 
-BOOL CMainDlg::GetPic(REOBJECT FAR* pObject)
+void CMainDlg::SetPic()     
 {
-	//CRichEditCtrl* pTextIn1 = (CRichEditCtrl*)GetDlgItem(IDC_CODE_RICHEDIT);
-	//CRichEditCtrl* pTextIn1 = (CRichEditCtrl*)m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->GetDlgItem(IDC_CODE_RICHEDIT);
-	CRichEditCtrl* pTextIn1 = (CRichEditCtrl*)m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->GetDlgItem(IDC_CODE_RICHEDIT);
-	IRichEditOle* pITextIn1 = pTextIn1->GetIRichEditOle();
-	LONG lCount=pITextIn1->GetObjectCount();
+	////创建HBITMAP
+ //   HBITMAP bmp = (HBITMAP)::LoadImage(NULL, FilePath, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE|LR_DEFAULTCOLOR|LR_DEFAULTSIZE);
 
-	LRESULT lRet;
-	for(int i=0;i<lCount;i++)
-	{
-		lRet=pITextIn1->GetObject(0,pObject,REO_GETOBJ_POLEOBJ);
-		if(lRet==S_OK)
-		{
-			pObject->poleobj->Release();
-			if(pObject->poleobj == m_pPicObj)
-			{
-				return TRUE;
-			}
-		}
+	///*CImage image;
+	//image.Load(FilePath);
+	//HBITMAP bmp = image.Detach();*/
+ //   
+ //   STGMEDIUM stgm;
+ //   stgm.tymed = TYMED_GDI;
+ //   stgm.hBitmap = bmp;
+ //   stgm.pUnkForRelease = NULL; 
+ //   
+ //   FORMATETC fm;
+ //   fm.cfFormat = CF_BITMAP;
+ //   fm.ptd = NULL;
+ //   fm.dwAspect = DVASPECT_CONTENT; 
+ //   fm.lindex = -1;
+ //   fm.tymed = TYMED_GDI;
+ //   
+ //   //创建输入数据源
+ //   IStorage *pStorage;
+ //   
+ //   //分配内存
+ //   LPLOCKBYTES lpLockBytes = NULL;
+ //   SCODE sc = ::CreateILockBytesOnHGlobal(NULL, TRUE, &lpLockBytes); 
+ //   if (sc != S_OK)
+ //       AfxThrowOleException(sc);
+ //   ASSERT(lpLockBytes != NULL);
 
-	}
-	return FALSE;
+ //   sc = ::StgCreateDocfileOnILockBytes(lpLockBytes, STGM_SHARE_EXCLUSIVE|STGM_CREATE|STGM_READWRITE, 0, &pStorage);
+ //   if (sc != S_OK)
+ //   {
+ //       VERIFY(lpLockBytes->Release() == 0);
+ //       lpLockBytes = NULL;
+ //       AfxThrowOleException(sc);     
+ //   }
+ //   ASSERT(pStorage != NULL);
+ //   
+ //   COleDataSource *pDataSource = new COleDataSource;
+ //   pDataSource->CacheData(CF_BITMAP, &stgm);
+ //   LPDATAOBJECT lpDataObject  = (LPDATAOBJECT)pDataSource->GetInterface(&IID_IDataObject);
+ //   
+ //   //获取RichEdit的OLEClientSite
+ //   LPOLECLIENTSITE lpClientSite;
+ //   m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetIRichEditOle()->GetClientSite(&lpClientSite);
+ //   
+ //   //创建OLE对象
+ //   IOleObject *pOleObject;
+ //   sc = OleCreateStaticFromData(lpDataObject, IID_IOleObject, OLERENDER_FORMAT, &fm, lpClientSite, pStorage,(void **)&pOleObject);
+
+ //   if(sc!=S_OK)
+ //       AfxThrowOleException(sc);
+ //   
+ //   //插入OLE对象
+ //   REOBJECT reobject;
+ //   ZeroMemory(&reobject, sizeof(REOBJECT));
+ //   reobject.cbStruct = sizeof(REOBJECT);
+ //   
+ //   CLSID clsid;
+ //   sc = pOleObject->GetUserClassID(&clsid);
+ //   if (sc != S_OK)
+ //       AfxThrowOleException(sc);
+ //   
+ //   reobject.clsid = clsid;
+ //   reobject.cp = REO_CP_SELECTION;
+ //   reobject.dvaspect = DVASPECT_CONTENT; 
+ //   reobject.poleobj = pOleObject;
+ //   reobject.polesite = lpClientSite;
+ //   reobject.pstg = pStorage;
+ //   
+ //   HRESULT hr = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.GetIRichEditOle()->InsertObject( &reobject );
+ //   delete pDataSource;
+
+	m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.InsertImage(FilePath);
 }
 
 
-void CMainDlg::SetPic()
+void CMainDlg::SavePic()
 {
-	HBITMAP hBitmap = (HBITMAP)::LoadImage(AfxGetInstanceHandle(), FilePath, IMAGE_BITMAP,0,0,LR_LOADFROMFILE|LR_DEFAULTCOLOR);
-	/*CImage image;
-	image.Load(FilePath);
-	HBITMAP hBitmap = image.Detach();*/
-
-	STGMEDIUM stgm;
-	stgm.tymed   = TYMED_GDI;
-	stgm.hBitmap = hBitmap;
-	stgm.pUnkForRelease = NULL;
-
-	FORMATETC fm;
-	fm.cfFormat = CF_BITMAP;
-	fm.ptd      = NULL;
-	fm.dwAspect = DVASPECT_CONTENT;
-	fm.lindex   = -1;
-	fm.tymed    = TYMED_GDI;
-
-	IStorage *pStorage;
-	LPLOCKBYTES lpLockBytes = NULL;
-	SCODE sc=::CreateILockBytesOnHGlobal(NULL,TRUE,&lpLockBytes);
-	if(sc!=S_OK) AfxThrowOleException(sc);
-	ASSERT(lpLockBytes!=NULL);
-	sc=::StgCreateDocfileOnILockBytes(lpLockBytes,STGM_SHARE_EXCLUSIVE|STGM_CREATE|STGM_READWRITE,0,&pStorage);
-	if(sc!=S_OK)
+	// 保存图片
+	/*if (m_hOperate == NULL)
 	{
-		VERIFY(lpLockBytes->Release()==0);
-		lpLockBytes=NULL;
-		AfxThrowOleException(sc);
-
-	}
-	ASSERT(pStorage != NULL);
-
-	COleDataSource *pDataSource = new COleDataSource;
-	pDataSource->CacheData(CF_BITMAP, &stgm);
-	LPDATAOBJECT lpDataObject=(LPDATAOBJECT)pDataSource->GetInterface(&IID_IDataObject);
-
-	LPOLECLIENTSITE  lpClientSite;
-
-	//CRichEditCtrl* pTextIn1 = (CRichEditCtrl*)GetDlgItem(IDC_CODE_RICHEDIT);
-	CRichEditCtrl* pTextIn1 = (CRichEditCtrl*)m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->GetDlgItem(IDC_CODE_RICHEDIT);
-
-	pTextIn1->GetIRichEditOle()->GetClientSite(&lpClientSite);
-
-	//创建OLE对象
-	IOleObject *pOleObject;
-	sc=OleCreateStaticFromData(lpDataObject,IID_IOleObject,OLERENDER_FORMAT,
-		&fm,lpClientSite,pStorage,(void **)&pOleObject);
-	if(sc!=S_OK) AfxThrowOleException(sc);
-
-	//插入OLE对象
-	REOBJECT reobject;
-	ZeroMemory(&reobject,sizeof(REOBJECT));
-	reobject.cbStruct=sizeof(REOBJECT);
-
-
-	CLSID clsid; 
-	sc = pOleObject->GetUserClassID(&clsid); 
-	if (sc != S_OK) 
-		AfxThrowOleException(sc);
-
-	reobject.clsid = clsid; 
-	reobject.cp = REO_CP_SELECTION; 
-	reobject.dvaspect = DVASPECT_CONTENT; 
-	reobject.poleobj = pOleObject; 
-	reobject.polesite = lpClientSite; 
-	reobject.pstg = pStorage; 
-	reobject.dwUser = 0;
-
-	REOBJECT obj;
-	obj.cbStruct=sizeof(obj);
-	if( GetPic(&obj) )
-	{
-		long lStart,lEnd;
-		pTextIn1->GetSel(lStart,lEnd);
-		pTextIn1->SetSel(obj.cp,obj.cp+1);
-		pTextIn1->Clear();
-
-		pTextIn1->GetIRichEditOle()->InsertObject(&reobject);
-		pTextIn1->SetSel(lStart,lEnd);
-	}
-	else
-	{
-		pTextIn1->GetIRichEditOle()->InsertObject(&reobject);
-	}
-
-	// 释放对象
-	if (hBitmap)
-	{
-		DeleteObject(hBitmap);
-	}
-	//image.Destroy();
-
-	delete pDataSource;
-	m_pPicObj = pOleObject;
-
-	::SendMessage(pTextIn1->m_hWnd,EM_SCROLLCARET,(WPARAM)0,(LPARAM)0);
-	pTextIn1->SetFocus();
+		Type = 15;
+		m_hOperate = AfxBeginThread(Operate, this);
+		CloseHandle(m_hOperate->m_hThread);
+	}*/
+	AfxMessageBox(_T("该方法存在缺陷，暂时不能使用。"));
 }
 
 
@@ -2507,10 +2814,209 @@ void CMainDlg::OnImage()
 		m_hOperate = AfxBeginThread(Operate, this);
 		CloseHandle(m_hOperate->m_hThread);
 	}
+
+	/*CFileDialog fd(TRUE);
+	CString strFile;
+	OPENFILENAME &ofn = fd.GetOFN();
+	ofn.lpstrFilter = _T("图像文件(*.bmp;*.jpg;*.jpeg;*.gif;*.png)\0*.bmp;*.jpg;*.jpeg;*.gif;*.png\0\0");
+	ofn.lpstrTitle = _T("添加文件");
+	ofn.lpstrFile = strFile.GetBuffer(MAX_PATH);
+	INT_PTR ret = fd.DoModal();
+	strFile.ReleaseBuffer();
+	if (ret == IDOK) {
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.InsertImage(strFile);
+	}*/
 }
 
 
-void  CMainDlg::OnScreenCapture()
+BOOL SaveBmpDataToFile(HBITMAP hBitmap, CString szfilename)
+{
+	//HDC     hDC;         
+	////当前分辨率下每象素所占字节数          
+	//int     iBits;         
+	////位图中每象素所占字节数          
+	//WORD     wBitCount;         
+	////定义调色板大小，     位图中像素字节大小     ，位图文件大小     ，     写入文件字节数              
+	//DWORD     dwPaletteSize=0,   dwBmBitsSize=0,   dwDIBSize=0,   dwWritten=0;             
+	////位图属性结构              
+	//BITMAP     Bitmap;                 
+	////位图文件头结构          
+	//BITMAPFILEHEADER     bmfHdr;                 
+	////位图信息头结构              
+	//BITMAPINFOHEADER     bi;                 
+	////指向位图信息头结构                  
+	//LPBITMAPINFOHEADER     lpbi;                 
+	////定义文件，分配内存句柄，调色板句柄              
+	//HANDLE     fh,   hDib,   hPal,hOldPal=NULL;             
+ //
+	////计算位图文件每个像素所占字节数              
+	//hDC  = CreateDC("DISPLAY",   NULL,   NULL,   NULL);         
+	//iBits  = GetDeviceCaps(hDC,   BITSPIXEL)     *     GetDeviceCaps(hDC,   PLANES);             
+	//DeleteDC(hDC);             
+	//if(iBits <=  1)                                                   
+	//	wBitCount = 1;             
+	//else  if(iBits <=  4)                               
+	//	wBitCount  = 4;             
+	//else if(iBits <=  8)                               
+	//	wBitCount  = 8;             
+	//else                                                                                                                               
+	//	wBitCount  = 24;
+ //
+	//GetObject(hBitmap,   sizeof(Bitmap),   (LPSTR)&Bitmap);         
+	//bi.biSize= sizeof(BITMAPINFOHEADER);         
+	//bi.biWidth = Bitmap.bmWidth;         
+	//bi.biHeight =  Bitmap.bmHeight;         
+	//bi.biPlanes =  1;         
+	//bi.biBitCount = wBitCount;         
+	//bi.biCompression= BI_RGB;         
+	//bi.biSizeImage=0;         
+	//bi.biXPelsPerMeter = 0;         
+	//bi.biYPelsPerMeter = 0;         
+	//bi.biClrImportant = 0;         
+	//bi.biClrUsed =  0;         
+ //
+	//dwBmBitsSize  = ((Bitmap.bmWidth *wBitCount+31) / 32)*4* Bitmap.bmHeight;         
+ //
+	////为位图内容分配内存              
+	//hDib  = GlobalAlloc(GHND,dwBmBitsSize+dwPaletteSize+sizeof(BITMAPINFOHEADER));             
+	//lpbi  = (LPBITMAPINFOHEADER)GlobalLock(hDib);             
+	//*lpbi  = bi;             
+ //
+	////     处理调色板                  
+	//hPal  = GetStockObject(DEFAULT_PALETTE);             
+	//if (hPal)             
+	//{             
+	//	hDC  = ::GetDC(NULL);             
+	//	hOldPal = ::SelectPalette(hDC,(HPALETTE)hPal, FALSE);             
+	//	RealizePalette(hDC);             
+	//}         
+ //
+	////     获取该调色板下新的像素值              
+	//GetDIBits(hDC,hBitmap, 0,(UINT)Bitmap.bmHeight,  
+	//	(LPSTR)lpbi+ sizeof(BITMAPINFOHEADER)+dwPaletteSize,   
+	//	(BITMAPINFO *)lpbi, DIB_RGB_COLORS);             
+ //
+	////恢复调色板                  
+	//if (hOldPal)             
+	//{             
+	//	::SelectPalette(hDC,   (HPALETTE)hOldPal,   TRUE);             
+	//	RealizePalette(hDC);             
+	//	::ReleaseDC(NULL,   hDC);             
+	//}             
+ //
+	////创建位图文件                  
+	//fh  = CreateFile(szfilename,   GENERIC_WRITE,0,   NULL,   CREATE_ALWAYS,           
+	//	FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN,   NULL);             
+ //
+	//if (fh     ==  INVALID_HANDLE_VALUE)         return     FALSE;             
+ //
+	////     设置位图文件头              
+	//bmfHdr.bfType  = 0x4D42;     //     "BM"              
+	//dwDIBSize  = sizeof(BITMAPFILEHEADER)+sizeof(BITMAPINFOHEADER)+dwPaletteSize+dwBmBitsSize;                 
+	//bmfHdr.bfSize  = dwDIBSize;             
+	//bmfHdr.bfReserved1  = 0;             
+	//bmfHdr.bfReserved2  = 0;             
+	//bmfHdr.bfOffBits  = (DWORD)sizeof(BITMAPFILEHEADER)+(DWORD)sizeof(BITMAPINFOHEADER)+dwPaletteSize;             
+	////     写入位图文件头              
+	//WriteFile(fh,   (LPSTR)&bmfHdr,   sizeof(BITMAPFILEHEADER),   &dwWritten,   NULL);             
+	////     写入位图文件其余内容              
+	//WriteFile(fh,   (LPSTR)lpbi,   dwDIBSize,   &dwWritten,   NULL);             
+	////清除                  
+	//GlobalUnlock(hDib);             
+	//GlobalFree(hDib);             
+	//CloseHandle(fh);             
+ //
+	//return     TRUE;         
+
+	BITMAP bm;
+    int width, height;
+    GetObject(hBitmap, sizeof(BITMAP), &bm);    
+    width = bm.bmWidth;
+    height = bm.bmHeight;
+    CDC memDC;
+    memDC.CreateCompatibleDC(NULL);
+    memDC.SelectObject(hBitmap);
+
+    CImage image;
+    image.Create(width, height, 32);
+    BitBlt(image.GetDC(), 0, 0, width, height, memDC.m_hDC, 0, 0, SRCCOPY);
+
+    HRESULT hResult = image.Save(szfilename);
+    //image.Save(_T("new.bmp"), Gdiplus::ImageFormatBMP);   // 保存成bmp
+
+    image.ReleaseDC();
+    memDC.DeleteDC();
+    return SUCCEEDED(hResult);
+}
+
+
+BOOL GetEncoderClsid(const WCHAR* format, CLSID* pClsid)
+{
+	UINT num = 0;
+	UINT size = 0;
+
+	GetImageEncodersSize(&num, &size);
+
+	if(size == 0)
+		return FALSE;
+
+	ImageCodecInfo* pImageCodecInfo = (ImageCodecInfo*)new BYTE[size];
+	if(pImageCodecInfo == NULL)
+		return FALSE;
+
+	GetImageEncoders(num, size, pImageCodecInfo);
+	for(UINT j = 0; j < num; ++j)
+	{
+		if(wcscmp(pImageCodecInfo[j].MimeType, format) == 0)
+		{
+			*pClsid = pImageCodecInfo[j].Clsid;
+			delete pImageCodecInfo;
+			return TRUE;
+		}
+	}
+
+	delete pImageCodecInfo;
+	return FALSE;
+}
+
+
+BOOL GetEncoderClsName(LPCTSTR lpszFileName, LPTSTR lpszBuf, DWORD dwBufSize)
+{
+	TCHAR* pFileExt = (TCHAR*)StrRChrW((LPCWSTR)lpszFileName, NULL, _T('.'));
+	if(NULL == pFileExt)
+		return FALSE;
+
+	_stprintf_s(lpszBuf, dwBufSize, _T("image/%s"), pFileExt + 1);
+	return TRUE;
+}
+
+
+// 支持的保存格式:BMP/TIFF/GIF/JPEG/PNG
+BOOL SaveBmpToJpeg(HBITMAP hBmp, LPCTSTR lpszJpegFileName, ULONG quality = 100)
+{
+	TCHAR sEncoderClsName[50] = {0};
+	if(!GetEncoderClsName(lpszJpegFileName, sEncoderClsName, 50))
+		return FALSE;
+
+	CLSID jpgClsid;
+	if(!GetEncoderClsid((const WCHAR *)sEncoderClsName, &jpgClsid))
+		return FALSE;
+
+	EncoderParameters encoderParameters;
+	encoderParameters.Count = 1;
+	encoderParameters.Parameter[0].Guid = EncoderQuality;
+	encoderParameters.Parameter[0].Type = EncoderParameterValueTypeLong;
+	encoderParameters.Parameter[0].NumberOfValues = 1;
+	encoderParameters.Parameter[0].Value = &quality;
+
+	Gdiplus::Bitmap bmp(hBmp, NULL);
+	Status status = bmp.Save((const WCHAR *)lpszJpegFileName, &jpgClsid, &encoderParameters);
+
+	return (status != Ok);
+}
+
+
+void CMainDlg::OnScreenCapture()
 {
 	// 插入图片
 	if (m_hOperate == NULL)
@@ -2555,6 +3061,65 @@ void  CMainDlg::OnScreenCapture()
 
 	//m_Screen->CenterWindow();
 	//m_Screen->ShowWindow(SW_SHOW);
+}
+
+
+void CMainDlg::SaveImage()
+{
+	//BOOL bSavePicSuccess = FALSE;
+	//int nCount = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.m_pRichEditOle->GetObjectCount(); // 当前m_ChatEdit中所有的object对象
+	//for ( int i=0; i<nCount; i++ )
+	//{
+	//	REOBJECT reobject;
+	//	memset( &reobject, 0 , sizeof(REOBJECT) );
+	//	reobject.cbStruct = sizeof(REOBJECT);
+
+	//	SCODE sc = m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.m_pRichEditOle->GetObject( i, &reobject, REO_GETOBJ_ALL_INTERFACES ); // 获取到reobject对象
+	//	if ( sc != S_OK )
+	//	{
+	//		continue;
+	//	}
+
+	//	if ( (reobject.dwFlags & REO_SELECTED) != REO_SELECTED ) // 检验当前reobject是否处于选中状态
+	//	{
+	//		continue; // 不是当前选中的对象，继续查找
+	//	}
+
+	//	IDataObject* pDataObject = NULL;
+	//	sc = reobject.poleobj->QueryInterface( IID_IDataObject, (void**)&pDataObject ); // 获取IDataObject信息
+	//	if ( sc != S_OK )
+	//	{
+	//		break; // 已经找到选中的图片对象，获取信息失败，直接退出
+	//	}
+
+	//	// 要对fm参数进行设置，指明要从IStorage中获取什么样的信息，否则GetData接口会获取stg信息失败
+	//	STGMEDIUM stg;
+	//	FORMATETC fm;
+	//	fm.cfFormat = CF_BITMAP;        // Clipboard format = CF_BITMAP
+	//	fm.ptd = NULL;                  // Target Device = Screen
+	//	fm.dwAspect = DVASPECT_CONTENT; // Level of detail = Full content
+	//	fm.lindex = -1;                 // Index = Not applicaple
+	//	fm.tymed = TYMED_GDI;           // 对应CF_BITMAP
+
+	//	HRESULT hr = pDataObject->GetData( &fm, &stg );
+	//	if ( hr != S_OK || stg.hBitmap == NULL )
+	//	{
+	//		break; // 已经找到选中的图片对象，获取信息失败，直接退出
+	//	}
+
+	//	BOOL bRet = SaveBmpDataToFile( stg.hBitmap, FilePath );
+	//	if ( bRet )
+	//	{
+	//		bSavePicSuccess = TRUE;
+	//	}
+	//}
+
+	//if ( !bSavePicSuccess )
+	//{
+	//	AfxMessageBox( _T("图片保存失败！") );
+	//}
+
+	AfxMessageBox(_T("该方法存在缺陷，暂时不能使用。"));
 }
 
 

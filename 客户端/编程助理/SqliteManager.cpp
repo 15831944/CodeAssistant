@@ -13,8 +13,6 @@ int CSqliteManager::nRow = NULL, CSqliteManager::nCol = NULL;
 BOOL CSqliteManager::IsConnect = FALSE;
 bool CSqliteManager::IsConsole = FALSE;
 int CSqliteManager::version    = NULL;
-CList <CString, CString&> CSqliteManager::pResult = NULL;
-
 
 // 默认构造函数
 CSqliteManager::CSqliteManager(bool Console)

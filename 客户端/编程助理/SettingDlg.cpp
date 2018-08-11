@@ -60,6 +60,39 @@ BOOL CSettingDlg::OnInitDialog()
 		OnSelchangeSkinCombo();
 	}
 
+	// 提示框
+	m_toolTips.Create(this, TTS_ALWAYSTIP|WS_POPUP);
+	m_toolTips.Activate(TRUE);
+
+	// 提示文字
+	m_toolTips.AddTool(GetDlgItem(IDC_TOP_CHECK),         _T("选中此项主窗口将置顶。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_CLEAR_CHECK),       _T("选中此项将无格式粘贴。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_SAVE_CHECK),        _T("选中此项将自动保存方法。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_OPEN_CHECK),        _T("选中此项将自动打开最后关闭的方法。\n若选中此项却没有任何方法将提示错误。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_PASSWORD_CHECK),    _T("选中此项将自动保存登陆密码。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_LOGIN_CHECK),       _T("选中此项将自动登陆云端。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_UPDATE_CHECK),      _T("选中此项将自动检查更新。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_SYNCHRONIZE_CHECK), _T("选中此项主窗口关闭时将自动同步数据。\n暂时不支持同步方法的依赖项目。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_ASSOCIATE_CHECK),   _T("选中此项将关联code文件。\n需要管理员权限。\n部分杀毒软件可能会拦截。\n请加入白名单。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_POSITION_CHECK),    _T("选中此项将记录主窗口位置。\n下次运行程序将自动调整窗口位置。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_LINE_CHECK),        _T("选中此项将自动换行。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_TIP_CHECK),         _T("选中此项显示功能提示。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_SKIN_COMBO),        _T("此选项可更换皮肤。"));
+	m_toolTips.AddTool(GetDlgItem(IDOK),                  _T("保存所有选项到配置文件中。"));
+	m_toolTips.AddTool(GetDlgItem(IDCANCEL),              _T("撤销所有操作。"));
+
+	//文字颜色
+	m_toolTips.SetTipTextColor(RGB(0,0,255));
+
+	//鼠标指向多久后显示提示，毫秒
+	m_toolTips.SetDelayTime(TTDT_INITIAL, 10); 
+
+	//鼠标保持指向，提示显示多久，毫秒
+	m_toolTips.SetDelayTime(TTDT_AUTOPOP, 9000000);
+
+	//设定显示宽度，超长内容自动换行
+	m_toolTips.SetMaxTipWidth(300);
+
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
 }
@@ -67,6 +100,10 @@ BOOL CSettingDlg::OnInitDialog()
 
 BOOL CSettingDlg::PreTranslateMessage(MSG* pMsg)
 {
+	// 功能提示
+	if(GetPrivateProfileInt(_T("Setting"), _T("Tip"), 0, _T("./Setting.ini")) == 1)
+		m_toolTips.RelayEvent(pMsg); // 接受消息响应
+
 	return CDialogEx::PreTranslateMessage(pMsg);
 }
 
@@ -86,6 +123,8 @@ void CSettingDlg::OnReadSetting()
 	int password  = GetPrivateProfileInt(_T("Account"), _T("Remember"),  0, _T("./Setting.ini"));
 	int login     = GetPrivateProfileInt(_T("Account"), _T("Auto"),  0, _T("./Setting.ini"));
 
+	int Line = GetPrivateProfileInt(_T("Setting"), _T("Line"),  0, _T("./Setting.ini"));
+	int Tip  = GetPrivateProfileInt(_T("Setting"), _T("Tip"),   1, _T("./Setting.ini"));
 
 	// 设置复选框状态
 	((CButton*)GetDlgItem(IDC_CLEAR_CHECK))->SetCheck(Clear);
@@ -96,6 +135,8 @@ void CSettingDlg::OnReadSetting()
 	((CButton*)GetDlgItem(IDC_SYNCHRONIZE_CHECK))->SetCheck(Synchronize);
 	((CButton*)GetDlgItem(IDC_ASSOCIATE_CHECK))->SetCheck(Associate);
 	((CButton*)GetDlgItem(IDC_POSITION_CHECK))->SetCheck(Position);
+	((CButton*)GetDlgItem(IDC_LINE_CHECK))->SetCheck(Line);
+	((CButton*)GetDlgItem(IDC_TIP_CHECK))->SetCheck(Tip);
 
 	((CButton*)GetDlgItem(IDC_PASSWORD_CHECK)) ->SetCheck(password);
 	((CButton*)GetDlgItem(IDC_LOGIN_CHECK))    ->SetCheck(login);
@@ -573,7 +614,7 @@ void CSettingDlg::OnDropdownSkinCombo()
 void CSettingDlg::OnOK()
 {
 	// 变量
-	CString Clear, Top, Save, Open, Password, Login, Update, Synchronize, Associate, Position;
+	CString Clear, Top, Save, Open, Password, Login, Update, Synchronize, Associate, Position, Line, Tip;
 
 	// 清除格式
 	if( ((CButton*)GetDlgItem(IDC_CLEAR_CHECK))->GetCheck() )
@@ -827,6 +868,26 @@ void CSettingDlg::OnOK()
 		::WritePrivateProfileString(_T("Position"), _T("WindowPosition"), _T(""), _T("./Setting.ini"));
 	}
 
+	// 自动换行
+	if( ((CButton*)GetDlgItem(IDC_LINE_CHECK))->GetCheck() )
+	{
+		// 赋值
+		Line = _T("1");
+
+		// 通知主窗口
+		::SendMessage(AfxGetApp()->GetMainWnd()->GetSafeHwnd(), WM_CHILDMESSAGE, 28, 0);
+	}
+	else
+	{
+		// 赋值
+		Line = _T("0");
+
+		// 通知主窗口
+		::SendMessage(AfxGetApp()->GetMainWnd()->GetSafeHwnd(), WM_CHILDMESSAGE, 28, 1);
+	}
+
+	// 自动换行
+	Tip.Format(_T("%d"), ((CButton*)GetDlgItem(IDC_TIP_CHECK))->GetCheck());
 
 	// 保存配置文件
 	::WritePrivateProfileString(_T("Setting"), _T("Clear"), Clear, _T("./Setting.ini"));
@@ -837,6 +898,8 @@ void CSettingDlg::OnOK()
 	::WritePrivateProfileString(_T("Setting"), _T("Synchronize"), Synchronize, _T("./Setting.ini"));
 	::WritePrivateProfileString(_T("Setting"), _T("Associate"),   Associate,   _T("./Setting.ini"));
 	::WritePrivateProfileString(_T("Setting"), _T("Position"),    Position,    _T("./Setting.ini"));
+	::WritePrivateProfileString(_T("Setting"), _T("Line"),  Line,  _T("./Setting.ini"));
+	::WritePrivateProfileString(_T("Setting"), _T("Tip"),   Tip,   _T("./Setting.ini"));
 
 	::WritePrivateProfileString(_T("Account"), _T("Remember"),  Password,  _T("./Setting.ini"));
 	::WritePrivateProfileString(_T("Account"), _T("Auto"),      Login,     _T("./Setting.ini"));

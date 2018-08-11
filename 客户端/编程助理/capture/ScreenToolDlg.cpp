@@ -24,13 +24,7 @@ CScreenToolDlg::CScreenToolDlg(CWnd* pParent /*=NULL*/)
 
 CScreenToolDlg::~CScreenToolDlg()
 {
-	//删除热键
-	UnregisterHotKey(m_hWnd, IDHOTKEYCFS);
-	UnregisterHotKey(m_hWnd, IDHOTKEYCWS);
-	UnregisterHotKey(m_hWnd, IDHOTKEYCRS);
-	UnregisterHotKey(m_hWnd, IDHOTKEYCFWS);
-	UnregisterHotKey(m_hWnd, IDHOTKEYSC);
-	UnregisterHotKey(m_hWnd, IDHOTKEYSM);
+	
 }
 
 void CScreenToolDlg::DoDataExchange(CDataExchange* pDX)
@@ -140,6 +134,13 @@ BOOL CScreenToolDlg::OnInitDialog()
 
 void CScreenToolDlg::OnCancel()
 {
+	//删除热键
+	UnregisterHotKey(m_hWnd, IDHOTKEYCFS);
+	UnregisterHotKey(m_hWnd, IDHOTKEYCWS);
+	UnregisterHotKey(m_hWnd, IDHOTKEYCRS);
+	UnregisterHotKey(m_hWnd, IDHOTKEYCFWS);
+	UnregisterHotKey(m_hWnd, IDHOTKEYSC);
+	UnregisterHotKey(m_hWnd, IDHOTKEYSM);
 	CDialog::OnCancel();
 }
 
@@ -316,16 +317,59 @@ void CScreenToolDlg::ClipRectOfScreen()
 
 	//隐藏应用程序窗口
 	ShowWindow(SW_HIDE);
-	Sleep(300);
 
-	//创建全屏截图窗口
-	if( !m_fullScreenWnd.CreateEx(0, m_pszClassName, _T("FULLSCREENWND"), /*WS_CHILD |*/ WS_POPUP, rect.left, rect.top, rect.right, rect.bottom, this->GetSafeHwnd(), NULL) )
-		AfxMessageBox(_T("窗口创建失败!"));
-	else
-	{
-		m_fullScreenWnd.IsExit = IsExit;
-		m_fullScreenWnd.ShowWindow(SW_SHOW);
-	}
+	////创建全屏截图窗口
+	//if( !m_fullScreenWnd.CreateEx(0, m_pszClassName, _T("FULLSCREENWND"), /*WS_CHILD |*/ WS_POPUP, rect.left, rect.top, rect.right, rect.bottom, this->GetSafeHwnd(), NULL) )
+	//	AfxMessageBox(_T("窗口创建失败!"));
+	//else
+	//{
+	//	m_fullScreenWnd.IsExit = IsExit;
+	//	m_fullScreenWnd.ShowWindow(SW_SHOW);
+	//}
+
+	STARTUPINFO si = { sizeof(si) };   
+    PROCESS_INFORMATION pi;   
+ 
+    si.dwFlags = STARTF_USESHOWWINDOW;   
+    si.wShowWindow = TRUE;
+    TCHAR cmdline[] =_T("./Application/NiuniuCapture.exe shadow,0,0,0,0,0,0,0");
+ 
+    BOOL bsucess = CreateProcess(NULL, 
+        cmdline,
+        NULL,
+        NULL,
+        FALSE,
+        CREATE_NEW_CONSOLE,
+        NULL,
+        NULL,
+        &si,
+        &pi);
+ 
+    if(bsucess)
+    {
+        HANDLE m_hProcess=pi.hProcess;  
+        CloseHandle(pi.hThread);
+ 
+        //printf("WaitForSingleObject\n");
+        WaitForSingleObject(m_hProcess,INFINITE);
+ 
+        DWORD dwexitcode;
+        GetExitCodeProcess(m_hProcess, &dwexitcode);
+ 
+        //printf("ExitCode : %d", dwexitcode);
+		if(dwexitcode == 1)
+		{
+			OnExit();
+		}
+		else if(dwexitcode == 2 || dwexitcode == 3)
+		{
+			ShowWindow(SW_SHOW);
+		}
+    }
+    else
+    {
+        printf("LastError : %d", GetLastError());
+    }
 }
 
 //截取当前前景窗口
@@ -579,5 +623,12 @@ void CScreenToolDlg::OnSysCommand(UINT nID, LPARAM lParam)
 
 void CScreenToolDlg::OnExit()
 {
+	//删除热键
+	UnregisterHotKey(m_hWnd, IDHOTKEYCFS);
+	UnregisterHotKey(m_hWnd, IDHOTKEYCWS);
+	UnregisterHotKey(m_hWnd, IDHOTKEYCRS);
+	UnregisterHotKey(m_hWnd, IDHOTKEYCFWS);
+	UnregisterHotKey(m_hWnd, IDHOTKEYSC);
+	UnregisterHotKey(m_hWnd, IDHOTKEYSM);
 	CDialog::OnOK();
 }

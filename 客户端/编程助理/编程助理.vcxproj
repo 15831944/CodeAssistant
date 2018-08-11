@@ -51,7 +51,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;_ITERATOR_DEBUG_LEVEL=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>./include</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
@@ -59,7 +59,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <IgnoreSpecificDefaultLibraries>MSVCRTD;LIBCMT</IgnoreSpecificDefaultLibraries>
-      <AdditionalDependencies>./Library/curl/libcurl_ssl_ssh2.lib;./Library/pthreads/x86/pthreadVC2.lib;Sensapi.lib;./Library/json/lib_json.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>./Library/curl/libcurl_ssl_ssh2d.lib;./Library/pthreads/x86/pthreadVC2.lib;Sensapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
@@ -87,12 +87,12 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <IgnoreSpecificDefaultLibraries>MSVCRT</IgnoreSpecificDefaultLibraries>
       <AdditionalLibraryDirectories>C:\Users\Shadow\Documents\Visual Studio 2010\Projects\编程助理\编程助理\Library\pthreads\x86;C:\Users\Shadow\Documents\Visual Studio 2010\Projects\编程助理\编程助理\Library\curl;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>./Library/curl/libcurl_ssl_ssh2.lib;./Library/pthreads/x86/pthreadVC2.lib;Sensapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>./Library/curl/libcurl_ssl_ssh2.lib;./Library/pthreads/x86/pthreadVC2.lib;Sensapi.lib;nafxcw.lib;libcmt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4049 %(AdditionalOptions)</AdditionalOptions>
       <MinimumRequiredVersion>5.01</MinimumRequiredVersion>
       <UACExecutionLevel>AsInvoker</UACExecutionLevel>
@@ -109,6 +109,8 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="Animator.rgs" />
+    <None Include="OleImage.rgs" />
     <None Include="res\10.cur" />
     <None Include="res\8.ico" />
     <None Include="res\clip.ico" />
@@ -119,6 +121,7 @@
     <None Include="res\编程助理.ico" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Animator_i.h" />
     <ClInclude Include="AssistantDlg.h" />
     <ClInclude Include="AutoCombox.h" />
     <ClInclude Include="capture\common.h" />
@@ -142,6 +145,7 @@
     <ClInclude Include="MainDlg.h" />
     <ClInclude Include="ModifyDlg.h" />
     <ClInclude Include="NotifyDlg.h" />
+    <ClInclude Include="OleImage.h" />
     <ClInclude Include="OleRichEditCtrl.h" />
     <ClInclude Include="ParagraphDlg.h" />
     <ClInclude Include="ProjectDlg.h" />
@@ -160,9 +164,13 @@
     <ClInclude Include="TransmissionDlg.h" />
     <ClInclude Include="WebEditDlg.h" />
     <ClInclude Include="WebProjectDlg.h" />
+    <ClInclude Include="_IOleImageEvents_CP.h" />
     <ClInclude Include="编程助理.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Animator_i.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="AssistantDlg.cpp" />
     <ClCompile Include="AutoCombox.cpp" />
     <ClCompile Include="capture\common.cpp" />
@@ -186,6 +194,7 @@
     <ClCompile Include="MainDlg.cpp" />
     <ClCompile Include="ModifyDlg.cpp" />
     <ClCompile Include="NotifyDlg.cpp" />
+    <ClCompile Include="OleImage.cpp" />
     <ClCompile Include="OleRichEditCtrl.cpp" />
     <ClCompile Include="ParagraphDlg.cpp" />
     <ClCompile Include="ProjectDlg.cpp" />
@@ -220,6 +229,9 @@
     <ProjectReference Include="sqlite3\sqlite3.vcxproj">
       <Project>{4a28904f-55db-0e4a-a131-469c203ca271}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Midl Include="Animator.idl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -55,6 +55,10 @@ public:
 	//退出
 	void OnExit();
 
+	// 截屏组件
+	HMODULE m_hModule;
+	LRESULT OnCaptureFinish(WPARAM wParam,LPARAM lParam);
+
 // 实现
 protected:
 	HICON m_hIcon;

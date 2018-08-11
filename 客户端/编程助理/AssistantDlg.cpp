@@ -5,7 +5,6 @@
 #include "编程助理.h"
 #include "AssistantDlg.h"
 #include "afxdialogex.h"
-#include "MainDlg.h"
 
 // CAssistantDlg 对话框
 
@@ -94,6 +93,11 @@ BOOL CAssistantDlg::OnInitDialog()
 	::RegisterHotKey(m_hWnd, ID_HOTKEY_Y, MOD_ALT, 'Y');
 	::RegisterHotKey(m_hWnd, ID_HOTKEY_Z, MOD_ALT, 'Z');
 
+	::RegisterHotKey(m_hWnd, ID_HOTKEY_LEFT,  MOD_ALT, VK_LEFT);
+	::RegisterHotKey(m_hWnd, ID_HOTKEY_RIGHT, MOD_ALT, VK_RIGHT);
+	::RegisterHotKey(m_hWnd, ID_HOTKEY_UP,    MOD_ALT, VK_UP);
+	::RegisterHotKey(m_hWnd, ID_HOTKEY_DOWN,  MOD_ALT, VK_DOWN);
+
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
 }
@@ -104,6 +108,21 @@ BOOL CAssistantDlg::PreTranslateMessage(MSG* pMsg)
 	// TODO: 在此添加专用代码和/或调用基类
 
 	return CDialogEx::PreTranslateMessage(pMsg);
+}
+
+
+UINT CAssistantDlg::Operate(LPVOID pParam)
+{
+	// 窗口指针
+	CAssistantDlg * pWnd = ((CAssistantDlg*)pParam);
+
+	while(::IsWindow(pWnd->TargetWnd))
+	{
+		Sleep(100);
+	}
+
+	pWnd->OnCancel();
+	return TRUE;
 }
 
 
@@ -274,6 +293,22 @@ void CAssistantDlg::OnHotKey(UINT nHotKeyId, UINT nKey1, UINT nKey2)
 		m_ComboBox.SetWindowText(_T("Z"));
 		break;
 
+	case ID_HOTKEY_LEFT:
+		::SendMessage(theApp.m_pMainWnd->GetSafeHwnd(), WM_CHILDMESSAGE, 24, 0);
+		break;
+
+	case ID_HOTKEY_RIGHT:
+		::SendMessage(theApp.m_pMainWnd->GetSafeHwnd(), WM_CHILDMESSAGE, 25, 0);
+		break;
+
+	case ID_HOTKEY_UP:
+		::SendMessage(theApp.m_pMainWnd->GetSafeHwnd(), WM_CHILDMESSAGE, 26, 0);
+		break;
+
+	case ID_HOTKEY_DOWN:
+		::SendMessage(theApp.m_pMainWnd->GetSafeHwnd(), WM_CHILDMESSAGE, 27, 0);
+		break;
+
 	default:
 		break;
 	}
@@ -287,8 +322,7 @@ void CAssistantDlg::OnHotKey(UINT nHotKeyId, UINT nKey1, UINT nKey2)
 
 void CAssistantDlg::OnSetCode()
 {
-	CMainDlg m_pMainDlg;
-	//CString FilePath = _T("Code\\") + m_pMainDlg.CurClass + _T("\\") + m_pMainDlg.CurType;
+	GetDlgItem(IDC_TIP_STATIC)->SetWindowText(_T("类型: ") + FileClass + _T("      类别: ") + FileType);
 
 	// 清空
 	m_ComboBox.ResetContent();
@@ -311,6 +345,12 @@ void CAssistantDlg::OnSetCode()
 			m_ComboBox.AddString(Name.Left(Name.GetLength() - 5));
 		}
 	}
+}
+
+
+void CAssistantDlg::OnOversee()
+{
+	AfxBeginThread(Operate, this);
 }
 
 
@@ -376,6 +416,11 @@ BOOL CAssistantDlg::DestroyWindow()
 	::UnregisterHotKey(m_hWnd, ID_HOTKEY_X);
 	::UnregisterHotKey(m_hWnd, ID_HOTKEY_Y);
 	::UnregisterHotKey(m_hWnd, ID_HOTKEY_Z);
+
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_LEFT);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_RIGHT);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_UP);
+	::UnregisterHotKey(m_hWnd, ID_HOTKEY_DOWN);
 
 	return CDialogEx::DestroyWindow();
 }

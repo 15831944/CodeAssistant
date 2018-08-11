@@ -12,6 +12,9 @@
 #include "HttpFileEx.h"     // 网络数据传送
 #include "SqliteManager.h"  // 数据库
 
+#include <GdiPlus.h>
+using namespace Gdiplus;
+
 #define WM_CHILDMESSAGE  WM_USER + 100 //自定义子窗口消息
 
 // CMainApp:

@@ -70,11 +70,15 @@ BOOL CDocumentDlg::OnInitDialog()
 
 	::SendMessage(m_Edit, EM_SETLANGOPTIONS, 0, 0);
 
-	// 超链接
+	//超链接
 	DWORD mask =::SendMessage(m_Edit.m_hWnd,EM_GETEVENTMASK, 0, 0);  
     mask = mask | ENM_LINK  | ENM_MOUSEEVENTS | ENM_SCROLLEVENTS |ENM_KEYEVENTS;  
     ::SendMessage(m_Edit.m_hWnd,EM_SETEVENTMASK, 0, mask);  
     ::SendMessage(m_Edit.m_hWnd,EM_AUTOURLDETECT, true, 0);
+
+	// 自动换行
+	if(GetPrivateProfileInt(_T("Setting"), _T("Line"), 0, _T("./Setting.ini")) == 1)
+		m_Edit.SetTargetDevice(NULL,0);
 
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
@@ -92,6 +96,8 @@ BOOL CDocumentDlg::PreTranslateMessage(MSG* pMsg)
 			CMenu popMenu;
 			popMenu.LoadMenu(IDR_FUNCTION_MENU);         //载入菜单
 			CMenu *pPopup = popMenu.GetSubMenu(0);     //获得子菜单指针
+
+			pPopup->EnableMenuItem(IDM_SAVEIMG, MF_BYCOMMAND|MF_DISABLED|MF_GRAYED);     //不允许菜单项使用
 
 			//pPopup->EnableMenuItem(ID_1,MF_BYCOMMAND|MF_ENABLED);                //允许菜单项使用
 			//pPopup->EnableMenuItem(ID_2,MF_BYCOMMAND|MF_DISABLED|MF_GRAYED);     //不允许菜单项使用
@@ -118,58 +124,58 @@ BOOL CDocumentDlg::PreTranslateMessage(MSG* pMsg)
 	if (pMsg->message == WM_KEYDOWN)
 	{
 		// Ctrl + C (复制)
-		if ( (nKeyCode == _T('C') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
-		{
-			CString   source = m_Edit.GetSelText();     
-			//put   your   text   in   source   
-			if(OpenClipboard())   
-			{   
-				HGLOBAL   clipbuffer;   
-				char   *   buffer;   
-				EmptyClipboard();   
-				clipbuffer   =   GlobalAlloc(GMEM_DDESHARE,   source.GetLength() +1);
-				buffer   =   (char*)GlobalLock(clipbuffer);
-				strcpy_s(buffer, 65535 ,LPCSTR((CStringA)source));
-				GlobalUnlock(clipbuffer);   
-				SetClipboardData(CF_TEXT,clipbuffer);   
-				CloseClipboard();   
-			}
+		//if ( (nKeyCode == _T('C') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
+		//{
+		//	CString   source = m_Edit.GetSelText();     
+		//	//put   your   text   in   source   
+		//	if(OpenClipboard())   
+		//	{   
+		//		HGLOBAL   clipbuffer;   
+		//		char   *   buffer;   
+		//		EmptyClipboard();   
+		//		clipbuffer   =   GlobalAlloc(GMEM_DDESHARE,   source.GetLength() +1);
+		//		buffer   =   (char*)GlobalLock(clipbuffer);
+		//		strcpy_s(buffer, 65535 ,LPCSTR((CStringA)source));
+		//		GlobalUnlock(clipbuffer);   
+		//		SetClipboardData(CF_TEXT,clipbuffer);   
+		//		CloseClipboard();   
+		//	}
 
-			return true;
-		}
+		//	return true;
+		//}
 
-		// Ctrl + V (粘贴)
-		if ( (nKeyCode == _T('V') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
-		{
-			if( GetPrivateProfileInt(_T("Setting"), _T("Clear"), 0, _T("./Setting.ini")) == 1)
-			{
-				m_Edit.PasteSpecial(CF_TEXT);
-				return true;
-			}
-		}
+		//// Ctrl + V (粘贴)
+		//if ( (nKeyCode == _T('V') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
+		//{
+		//	if( GetPrivateProfileInt(_T("Setting"), _T("Clear"), 0, _T("./Setting.ini")) == 1)
+		//	{
+		//		m_Edit.PasteSpecial(CF_TEXT);
+		//		return true;
+		//	}
+		//}
 
-		// Ctrl + X (剪切)
-		if ( (nKeyCode == _T('X') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
-		{
-			CString   source = m_Edit.GetSelText();     
-			//put   your   text   in   source   
-			if(OpenClipboard())   
-			{   
-				HGLOBAL   clipbuffer;   
-				char   *   buffer;   
-				EmptyClipboard();   
-				clipbuffer   =   GlobalAlloc(GMEM_DDESHARE,   source.GetLength() +1);
-				buffer   =   (char*)GlobalLock(clipbuffer);
-				strcpy_s(buffer, 65535 ,LPCSTR((CStringA)source));
-				GlobalUnlock(clipbuffer);   
-				SetClipboardData(CF_TEXT,clipbuffer);   
-				CloseClipboard();   
-			}
+		//// Ctrl + X (剪切)
+		//if ( (nKeyCode == _T('X') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
+		//{
+		//	CString   source = m_Edit.GetSelText();     
+		//	//put   your   text   in   source   
+		//	if(OpenClipboard())   
+		//	{   
+		//		HGLOBAL   clipbuffer;   
+		//		char   *   buffer;   
+		//		EmptyClipboard();   
+		//		clipbuffer   =   GlobalAlloc(GMEM_DDESHARE,   source.GetLength() +1);
+		//		buffer   =   (char*)GlobalLock(clipbuffer);
+		//		strcpy_s(buffer, 65535 ,LPCSTR((CStringA)source));
+		//		GlobalUnlock(clipbuffer);   
+		//		SetClipboardData(CF_TEXT,clipbuffer);   
+		//		CloseClipboard();   
+		//	}
 
-			// 剪切
-			m_Edit.Cut();
-			return true;
-		}
+		//	// 剪切
+		//	m_Edit.Cut();
+		//	return true;
+		//}
 
 		// Ctrl + S (保存方法)
 		if ( (nKeyCode == _T('S') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
@@ -282,6 +288,30 @@ BOOL CDocumentDlg::PreTranslateMessage(MSG* pMsg)
 			::SendMessage(theApp.m_pMainWnd->GetSafeHwnd(), WM_CHILDMESSAGE, 19, 0);
 			return true;
 		}
+
+		// Ctrl + L (导出选中图片)
+		if ( (nKeyCode == _T('L') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
+		{
+			// 通知主窗口
+			::SendMessage(theApp.m_pMainWnd->GetSafeHwnd(), WM_CHILDMESSAGE, 29, 0);
+			return true;
+		}
+
+		// Ctrl + Y (云端同步)
+		if ( (nKeyCode == _T('Y') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
+		{
+			// 通知主窗口
+			::SendMessage(theApp.m_pMainWnd->GetSafeHwnd(), WM_CHILDMESSAGE, 30, 0);
+			return true;
+		}
+
+		// Ctrl + K (助理设置)
+		if ( (nKeyCode == _T('K') && (::GetKeyState(VK_CONTROL) & 0x8000) ) )
+		{
+			// 通知主窗口
+			::SendMessage(theApp.m_pMainWnd->GetSafeHwnd(), WM_CHILDMESSAGE, 31, 0);
+			return true;
+		}
 	}
 
 	return CDialogEx::PreTranslateMessage(pMsg);
@@ -327,7 +357,7 @@ void CDocumentDlg::OnRichEditLink(NMHDR*in_pNotifyHeader, LRESULT* out_pResult )
 void CDocumentDlg::OnChangeCodeRichedit()
 {
 	// 通知主窗口
-	::SendMessage(theApp.m_pMainWnd->GetSafeHwnd(), WM_CHILDMESSAGE, 4, 0);
+	::SendMessage(AfxGetApp()->GetMainWnd()->GetSafeHwnd(), WM_CHILDMESSAGE, 4, 0);
 }
 
 

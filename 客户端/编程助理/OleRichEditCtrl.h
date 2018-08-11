@@ -10,6 +10,7 @@
 
 #include <richole.h>
 
+#define FRM_TIMER_ID			1
 
 /////////////////////////////////////////////////////////////////////////////
 // COleRichEditCtrl window
@@ -25,7 +26,12 @@ public:
 	long StreamInFromResource(CString strRes, LPCTSTR sType);
 	long StreamOutToFile(CString strDesFile, LPCTSTR sType);
 
-
+	afx_msg BOOL OnEraseBkgnd(CDC* pDC);
+	afx_msg void OnDestroy();
+	int FindFirstObject(int cpMin, int nObjectCount);
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
+	HRESULT InsertImage(LPCTSTR lpszPathName);
+	CComPtr<IRichEditOle> m_pRichEditOle;
 
 protected:
 	static DWORD CALLBACK readFunction(DWORD dwCookie,
@@ -41,7 +47,6 @@ protected:
 
 	IExRichEditOleCallback* m_pIRichEditOleCallback;
 	BOOL m_bCallbackSet;
-	
 	
 	interface IExRichEditOleCallback : public IRichEditOleCallback
 	{
@@ -82,7 +87,7 @@ public:
 
 // Implementation
 public:
-
+	//afx_msg UINT OnGetDlgCode();
 
 	// Generated message map functions
 protected:
