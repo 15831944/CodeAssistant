@@ -42,11 +42,11 @@ class BaseValidate extends Validate
             //......
         ],
         'regex' => [
-            'email'    => '邮箱格式错误',
-            'phone'    => '手机号码格式错误',
-            'tel'      => '电话号码格式错误',
-            'username' => '帐号格式错误',
-            'IdCard'   => '邮箱格式错误',
+            'email'    => '邮箱格式错误!',
+            'phone'    => '手机号码格式错误!',
+            'tel'      => '电话号码格式错误!',
+            'username' => '帐号格式错误!',
+            'IdCard'   => '邮箱格式错误!',
             //......
         ],
     ];

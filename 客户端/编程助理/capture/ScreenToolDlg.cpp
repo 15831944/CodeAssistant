@@ -317,6 +317,7 @@ void CScreenToolDlg::ClipRectOfScreen()
 
 	//隐藏应用程序窗口
 	ShowWindow(SW_HIDE);
+	Sleep(300);
 
 	////创建全屏截图窗口
 	//if( !m_fullScreenWnd.CreateEx(0, m_pszClassName, _T("FULLSCREENWND"), /*WS_CHILD |*/ WS_POPUP, rect.left, rect.top, rect.right, rect.bottom, this->GetSafeHwnd(), NULL) )

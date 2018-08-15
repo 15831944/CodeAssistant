@@ -22,6 +22,9 @@ public:
 	// post 参数类型
 	int Type;
 
+	// Tip
+	CToolTipCtrl m_toolTips;
+
 	// 方法
 	void OnSuccess();
 	void OnError();

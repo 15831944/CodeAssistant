@@ -132,6 +132,26 @@ BOOL CSearchDlg::OnInitDialog()
 		}
 	}
 	
+	// 提示框
+	m_toolTips.Create(this, TTS_ALWAYSTIP|WS_POPUP);
+	m_toolTips.Activate(TRUE);
+
+	m_toolTips.AddTool(GetDlgItem(IDC_SEARCH_COMBO), _T("显示所有搜索目标。\n输入目标首字母快速查找。"));
+	m_toolTips.AddTool(GetDlgItem(IDOK),             _T("完成搜索并返回。"));
+	m_toolTips.AddTool(GetDlgItem(IDCANCEL),         _T("取消本次搜索。"));
+
+	//文字颜色
+	m_toolTips.SetTipTextColor(RGB(0,0,255));
+
+	//鼠标指向多久后显示提示，毫秒
+	m_toolTips.SetDelayTime(TTDT_INITIAL, 10); 
+
+	//鼠标保持指向，提示显示多久，毫秒
+	m_toolTips.SetDelayTime(TTDT_AUTOPOP, 9000000);
+
+	//设定显示宽度，超长内容自动换行
+	m_toolTips.SetMaxTipWidth(300);
+
 	VMPEND
 
 	return TRUE;  // return TRUE unless you set the focus to a control
@@ -142,6 +162,11 @@ BOOL CSearchDlg::OnInitDialog()
 BOOL CSearchDlg::PreTranslateMessage(MSG* pMsg)
 {
 	VMPBEGIN
+
+	// 功能提示
+	if(GetPrivateProfileInt(_T("Setting"), _T("Tip"), 0, _T("./Setting.ini")) == 1)
+		m_toolTips.RelayEvent(pMsg); // 接受消息响应
+
 	VMPEND
 
 	return CDialogEx::PreTranslateMessage(pMsg);

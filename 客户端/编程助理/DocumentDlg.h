@@ -16,8 +16,11 @@ public:
 	COleRichEditCtrl m_Edit;
 
 	// 成员变量
-	BOOL IsOutFunction;
-	CString FileClass, FileType, FilePath, FileName;
+	BOOL IsOutFunction, IsChanged;
+	CString FileClass, FileType, FilePath, FileName, FileText;
+
+	// 成员方法
+	void OnSetText(CString Target);
 
 // 对话框数据
 	enum { IDD = IDD_DOCUMENT_DIALOG };

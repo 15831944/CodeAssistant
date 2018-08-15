@@ -71,6 +71,30 @@ BOOL CSynchronizeDlg::OnInitDialog()
 	if(!IsAutoSynchronize)
 		GetServerInfo();
 
+	// 提示框
+	m_toolTips.Create(this, TTS_ALWAYSTIP|WS_POPUP);
+	m_toolTips.Activate(TRUE);
+
+	m_toolTips.AddTool(GetDlgItem(IDC_LOCAL_TREE),      _T("显示本地库数据。\n双击目标后上传至云端。\n按下delete或者退格键删除选中目标。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_SERVER_TREE),     _T("显示云端库数据。\n双击目标后下载至本地。\n按下delete或者退格键删除选中目标。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_UPLOAD_BUTTON),   _T("上传选中目标至云端。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_DOWNLOAD_BUTTON), _T("下载选中目标至本地。"));
+	m_toolTips.AddTool(GetDlgItem(IDOK),                _T("对本地与云端库自动分析并同步数据。\n可按下回车快速同步。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_SWITCH_BUTTON),   _T("切换本地/云端的方法/文件库。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_VERSION_BUTTON),  _T("进入云端项目管理系统。"));
+
+	//文字颜色
+	m_toolTips.SetTipTextColor(RGB(0,0,255));
+
+	//鼠标指向多久后显示提示，毫秒
+	m_toolTips.SetDelayTime(TTDT_INITIAL, 10); 
+
+	//鼠标保持指向，提示显示多久，毫秒
+	m_toolTips.SetDelayTime(TTDT_AUTOPOP, 9000000);
+
+	//设定显示宽度，超长内容自动换行
+	m_toolTips.SetMaxTipWidth(300);
+
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
 }
@@ -88,6 +112,10 @@ BOOL CSynchronizeDlg::PreTranslateMessage(MSG* pMsg)
 			return true;
 		}
 	}
+
+	// 功能提示
+	if(GetPrivateProfileInt(_T("Setting"), _T("Tip"), 0, _T("./Setting.ini")) == 1)
+		m_toolTips.RelayEvent(pMsg); // 接受消息响应
 
 	return CDialogEx::PreTranslateMessage(pMsg);
 }

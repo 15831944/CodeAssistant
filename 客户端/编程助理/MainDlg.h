@@ -102,7 +102,7 @@ protected:
 	CWinThread * m_hOperate, * m_hUpDate;
 
 	CString UpDateInfo, Error, Msg, FilePath, FileName, FileClass, FileType;
-	BOOL IsNew, IsEdit;
+	BOOL IsNew, IsEdit, IsSave, IsCancel;
 
 	DECLARE_MESSAGE_MAP()
 public:

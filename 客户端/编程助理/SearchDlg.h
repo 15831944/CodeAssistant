@@ -16,6 +16,7 @@ public:
 	BOOL NeedFind, FindFile, Web_Data;
 	CString Title, FilePath, Function;
 	CAutoCombox m_ComboBox;
+	CToolTipCtrl m_toolTips;
 
 	// ¥ÌŒÛÃ· æ
 	CString Error;

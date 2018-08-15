@@ -114,7 +114,7 @@ class Account extends Controller
 
         // 验证对象
         $validate = new BaseValidate();
-        $check = $validate->checkRequire($params)->checkEqual($params,['password','confirm'])->end();
+        $check = $validate->checkRequire($params)->checkRegex($params,['email'])->checkEqual($params,['password','confirm'])->end();
 
         // 验证信息
         if (!$check)
@@ -125,6 +125,10 @@ class Account extends Controller
         else
         {
             $user = new User();
+
+            if($user->where(['UserName' => $name])->count())
+                return "used";
+
             $flag = $user->save([
                 'UserName' => $name,
                 'EMail'    => $email,
@@ -133,15 +137,15 @@ class Account extends Controller
 
             if($flag)
             {
-                echo "success";
+                return "success";
             }
             else
             {
-                echo "error";
+                return "error";
             }
         }
 
-
+        return "error";
     }
 
 
@@ -343,8 +347,8 @@ class Account extends Controller
         // 时间解析
         $arr = explode(";", $time);
 
-        // 修改时间
-        touch($dirPath, mktime($arr[0],$arr[1],$arr[2],$arr[3],$arr[4],$arr[5]));
+
+        touch($dirPath, mktime(19,5,10,10,26,2013));
     }
 
 
@@ -437,10 +441,6 @@ class Account extends Controller
     // 网络项目管理
 
     // 得到用户数据
-    /**
-     * @return string
-     * @throws \think\exception\DbException
-     */
     public function GetUserInfo()
     {
         $user = new User();
@@ -449,10 +449,6 @@ class Account extends Controller
 
 
     // 得到小组数据
-    /**
-     * @return string
-     * @throws \think\exception\DbException
-     */
     public function GetGroup()
     {
         $project_id = input('id');
@@ -463,12 +459,6 @@ class Account extends Controller
 
 
     // 得到项目数据
-    /**
-     * @return string
-     * @throws \think\db\exception\DataNotFoundException
-     * @throws \think\db\exception\ModelNotFoundException
-     * @throws \think\exception\DbException
-     */
     public function ProjectInfo()
     {
         $id = input('id');
@@ -508,10 +498,6 @@ class Account extends Controller
 
 
     // 得到版本数据
-    /**
-     * @return string
-     * @throws \think\exception\DbException
-     */
     public function GetVersionInfo()
     {
         $project = input('project_id');
@@ -522,10 +508,6 @@ class Account extends Controller
 
 
     // 获得项目数据
-    /**
-     * @return string
-     * @throws \think\exception\DbException
-     */
     public function GetProject()
     {
         // 获取参数
@@ -536,10 +518,6 @@ class Account extends Controller
     }
 
 
-    /**
-     * @return string
-     * @throws \think\exception\DbException
-     */
     public function GetOpenProject()
     {
         $project = new Project();
@@ -627,7 +605,8 @@ class Account extends Controller
             {
                 if($project->where(['UserId' => $user_id, 'ProjectName' => $name])->count())
                 {
-                    return "used";
+                    echo "used";
+                    return;
                 }
             }
             else
@@ -635,7 +614,8 @@ class Account extends Controller
                 // 检测公共项目
                 if($project->where(['ProjectName' => $name, 'ShareStatus' =>  1])->count())
                 {
-                    return "shared";
+                    echo "shared";
+                    return;
                 }
             }
 
@@ -695,8 +675,6 @@ class Account extends Controller
                 }
             }
         }
-
-        return "error";
     }
 
 
@@ -833,8 +811,6 @@ class Account extends Controller
         }
         else
             return "error";
-
-        return "error";
     }
 
 
@@ -894,8 +870,6 @@ class Account extends Controller
                 echo "error";
             }
         }
-
-        return "error";
     }
 
 
@@ -1053,12 +1027,6 @@ class Account extends Controller
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     // 自动更新
 
-    /**
-     * @return string
-     * @throws \think\db\exception\DataNotFoundException
-     * @throws \think\db\exception\ModelNotFoundException
-     * @throws \think\exception\DbException
-     */
     public function GetUpDataInfo()
     {
         $update   = new UpDate();
@@ -1067,5 +1035,6 @@ class Account extends Controller
 
         return $version.";".$filepath.";";
     }
+
 
 }

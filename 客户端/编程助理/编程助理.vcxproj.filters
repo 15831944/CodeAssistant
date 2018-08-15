@@ -322,9 +322,4 @@
       <Filter>资源文件</Filter>
     </ResourceCompile>
   </ItemGroup>
-  <ItemGroup>
-    <Midl Include="Animator.idl">
-      <Filter>源文件</Filter>
-    </Midl>
-  </ItemGroup>
 </Project>

@@ -6,7 +6,7 @@
 
 
  /* File created by MIDL compiler version 7.00.0555 */
-/* at Sat Aug 11 10:50:30 2018
+/* at Wed Aug 08 08:07:00 2018
  */
 /* Compiler settings for Animator.idl:
     Oicf, W1, Zp8, env=Win32 (32b run), target_arch=X86 7.00.0555 

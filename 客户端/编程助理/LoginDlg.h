@@ -22,6 +22,7 @@ public:
 
 	// 全局变量
 	CString Parameter, UserId, Error;
+	CToolTipCtrl m_toolTips;
 
 
 // 对话框数据

@@ -73,7 +73,7 @@ CMainDlg::CMainDlg(CWnd* pParent /*=NULL*/)
 	m_hOperate = m_hUpDate = NULL;
 
 	IsNew  = TRUE;
-	IsEdit = FALSE;
+	IsEdit = IsSave = IsCancel = FALSE;
 
 	CurClass = CurType = _T("");
 
@@ -309,7 +309,6 @@ BOOL CMainDlg::OnInitDialog()
 		{
 			Type = 2;
 			m_hOperate = AfxBeginThread(Operate, this);
-			CloseHandle(m_hOperate->m_hThread);
 		}
 	}
 
@@ -322,7 +321,6 @@ BOOL CMainDlg::OnInitDialog()
 	{
 		Type = 0;
 		m_hOperate = AfxBeginThread(Operate, this);
-		CloseHandle(m_hOperate->m_hThread);
 	}
 
 	// 检测更新
@@ -534,7 +532,6 @@ BOOL CMainDlg::PreTranslateMessage(MSG* pMsg)
 					{
 						Type = 8;
 						m_hOperate = AfxBeginThread(Operate, this);
-						CloseHandle(m_hOperate->m_hThread);
 					}
 
 					// 屏蔽回车消息
@@ -704,7 +701,7 @@ void CMainDlg::OnCodeAssistant()
 
 	if(IsWindow(m_hWnd))
 	{
-		if(m_hWnd == AfxGetApp()->GetMainWnd()->GetSafeHwnd() || m_hWnd == m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->GetSafeHwnd())
+		if(m_hWnd == AfxGetApp()->GetMainWnd()->GetSafeHwnd() || m_hWnd == m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->GetSafeHwnd() || m_hWnd == theApp.m_pMainWnd->GetParent()->GetSafeHwnd())
 		{
 			AfxMessageBox(_T("不能选择程序自身作为目标!"));
 			return;
@@ -994,12 +991,27 @@ LRESULT CMainDlg::OnMessageChild(WPARAM wParam, LPARAM lParam)
 		break;
 
 	case 4:
+		// 修改标签
+		if(m_Tab.m_selTabID >= 0)
+		{
+			if(!m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileText.IsEmpty())
+			{
+				if(m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->IsChanged)
+				{
+					CString Name = _T(" ") + m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileName + _T(" * ");
+					TCHAR* NewName =  Name.GetBuffer(0);
+
+					m_Tab.SetPageTitle(m_Tab.m_selTabID, NewName);
+					m_Tab.Invalidate();
+				}
+			}
+		}
+
 		// 自动保存
 		if (m_hOperate == NULL)
 		{
 			Type = 7;
 			m_hOperate = AfxBeginThread(Operate, this);
-			CloseHandle(m_hOperate->m_hThread);
 		}
 		break;
 
@@ -1107,7 +1119,7 @@ LRESULT CMainDlg::OnMessageChild(WPARAM wParam, LPARAM lParam)
 			Uncompress(Code, Code.Left(Code.GetLength() -5) + _T(".rtf"));
 
 			// 读取rtf文件
-			m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->m_Edit.StreamInFromResource(Code.Left(Code.GetLength() -5) + _T(".rtf"), _T("SF_RTF"));
+			m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->OnSetText(Code.Left(Code.GetLength() -5));
 
 			// 删除原文件
 			DeleteFile(Code.Left(Code.GetLength() -5) + _T(".rtf"));
@@ -1124,7 +1136,7 @@ LRESULT CMainDlg::OnMessageChild(WPARAM wParam, LPARAM lParam)
 				EmptyClipboard();
 				clipbuffer   =   GlobalAlloc(GMEM_DDESHARE,   Source.GetLength() +1);
 				buffer   =   (char*)GlobalLock(clipbuffer);
-				strcpy_s(buffer, 65535 ,LPCSTR((CStringA)Source));
+				strcpy_s(buffer, strlen(Source.GetBuffer())+1 ,LPCSTR((CStringA)Source));
 				GlobalUnlock(clipbuffer);
 				SetClipboardData(CF_TEXT,clipbuffer);
 				CloseClipboard();
@@ -1167,6 +1179,12 @@ LRESULT CMainDlg::OnMessageChild(WPARAM wParam, LPARAM lParam)
 
 	case 31:
 		OnSetting();
+		break;
+
+	case 32:
+		// 保存
+		IsSave = TRUE;
+		OnOK();
 		break;
 	}
 
@@ -1276,7 +1294,7 @@ UINT CMainDlg::Operate(LPVOID pParam)
 					pWnd->Uncompress(Code, Code.Left(Code.GetLength() -5) + _T(".rtf"));
 
 					// 读取rtf文件
-					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.StreamInFromResource(Code.Left(Code.GetLength() -5) + _T(".rtf"), _T("SF_RTF"));
+					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->OnSetText(Code.Left(Code.GetLength() -5));
 
 					// 删除原文件
 					DeleteFile(Code.Left(Code.GetLength() -5) + _T(".rtf"));
@@ -1476,7 +1494,7 @@ read:
 					pWnd->Uncompress(Target + _T(".code"), Target + _T(".rtf"));
 
 					// 读取rtf文件
-					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.StreamInFromResource(Target + _T(".rtf"), _T("SF_RTF"));
+					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->OnSetText(Target);
 
 					// 删除原文件
 					DeleteFile(FilePath + Name + _T(".rtf"));
@@ -1499,7 +1517,7 @@ read:
 				pWnd->Uncompress(_T("使用说明.code"), _T("使用说明.rtf"));
 
 				// 显示用户使用说明
-				pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.StreamInFromResource(_T("使用说明.rtf"), _T("SF_RTF"));
+				pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->OnSetText(_T("使用说明"));
 
 				// 删除原文件
 				DeleteFile(_T("使用说明.rtf"));
@@ -2188,7 +2206,7 @@ read:
 					pWnd->Uncompress(Code, Code.Left(Code.GetLength() -5) + _T(".rtf"));
 
 					// 读取rtf文件
-					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->m_Edit.StreamInFromResource(Code.Left(Code.GetLength() -5) + _T(".rtf"), _T("SF_RTF"));
+					pWnd->m_Tab.m_DocumentTab.at(pWnd->m_Tab.m_selTabID)->OnSetText(Code.Left(Code.GetLength() -5));
 
 					// 删除原文件
 					DeleteFile(Code.Left(Code.GetLength() -5) + _T(".rtf"));
@@ -2250,6 +2268,7 @@ read:
 
 	// 对象置为空
 	pWnd->m_hOperate = NULL;
+	pWnd = NULL;
 	return TRUE;
 }
 
@@ -2376,7 +2395,6 @@ void CMainDlg::OnHelp()
 	{
 		Type = 2;
 		m_hOperate = AfxBeginThread(Operate, this);
-		CloseHandle(m_hOperate->m_hThread);
 	}
 }
 
@@ -2569,8 +2587,35 @@ void CMainDlg::OnCheck()
 
 void CMainDlg::OnSaveCode()
 {
+	if(IsSave)
+	{
+		// 修改标识
+		m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->IsChanged = FALSE;
+		m_Tab.OnRButtonDown(NULL, NULL);
+		IsSave = FALSE;
+	}
+	else
+	{
+		if(m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->IsChanged)
+		{
+			TCHAR* NewName =  m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->FileName.GetBuffer(0);
+			m_Tab.SetPageTitle(m_Tab.m_selTabID, NewName);
+			m_Tab.Invalidate();
+
+			// 修改标识
+			m_Tab.m_DocumentTab.at(m_Tab.m_selTabID)->IsChanged = FALSE;
+		}
+	}
+
 	// 消息提示
 	MessageBox(_T("方法已保存成功!"), _T("编程助理"), MB_ICONINFORMATION);
+
+	// 退出
+	if(IsCancel)
+	{
+		IsCancel = FALSE;
+		OnCancel();
+	}
 
 	//设置高亮显示  
 	m_List.SetFocus();//设置焦点  
@@ -2812,7 +2857,6 @@ void CMainDlg::OnImage()
 	{
 		Type = 12;
 		m_hOperate = AfxBeginThread(Operate, this);
-		CloseHandle(m_hOperate->m_hThread);
 	}
 
 	/*CFileDialog fd(TRUE);
@@ -3023,7 +3067,6 @@ void CMainDlg::OnScreenCapture()
 	{
 		Type = 14;
 		m_hOperate = AfxBeginThread(Operate, this);
-		CloseHandle(m_hOperate->m_hThread);
 	}
 
 	// 延迟
@@ -3152,7 +3195,6 @@ void CMainDlg::OnOpen()
 	{
 		Type = 13;
 		m_hOperate = AfxBeginThread(Operate, this);
-		CloseHandle(m_hOperate->m_hThread);
 	}
 }
 
@@ -3534,7 +3576,6 @@ void CMainDlg::OnDblclkCodeList(NMHDR *pNMHDR, LRESULT *pResult)
 	{
 		Type = 8;
 		m_hOperate = AfxBeginThread(Operate, this);
-		CloseHandle(m_hOperate->m_hThread);
 	}
 
 	VMPEND
@@ -3551,7 +3592,6 @@ void CMainDlg::OnItemchangedCodeList(NMHDR *pNMHDR, LRESULT *pResult)
 		{
 			Type = 1;
 			m_hOperate = AfxBeginThread(Operate, this);
-			CloseHandle(m_hOperate->m_hThread);
 		}
 	VMPEND
 }
@@ -3886,7 +3926,6 @@ void CMainDlg::OnKillfocusClassCombo()
 	{
 		Type = 3;
 		m_hOperate = AfxBeginThread(Operate, this);
-		CloseHandle(m_hOperate->m_hThread);
 	}
 
 	VMPEND
@@ -3902,7 +3941,6 @@ void CMainDlg::OnDropdownClassCombo()
 	{
 		Type = 4;
 		m_hOperate = AfxBeginThread(Operate, this);
-		CloseHandle(m_hOperate->m_hThread);
 	}
 
 	VMPEND
@@ -3918,7 +3956,6 @@ void CMainDlg::OnKillfocusTypeCombo()
 	{
 		Type = 5;
 		m_hOperate = AfxBeginThread(Operate, this);
-		CloseHandle(m_hOperate->m_hThread);
 	}
 
 	VMPEND
@@ -3934,7 +3971,6 @@ void CMainDlg::OnDropdownTypeCombo()
 	{
 		Type = 6;
 		m_hOperate = AfxBeginThread(Operate, this);
-		CloseHandle(m_hOperate->m_hThread);
 	}
 
 	VMPEND
@@ -4383,7 +4419,6 @@ void CMainDlg::OnCancel()
 		if(Code == STILL_ACTIVE)
 		{
 			TerminateThread(m_hOperate, 0);
-			CloseHandle(m_hOperate);
 		}
 	}
 	if(GetExitCodeThread(m_hUpDate, &Code))
@@ -4391,7 +4426,6 @@ void CMainDlg::OnCancel()
 		if(Code == STILL_ACTIVE)
 		{
 			TerminateThread(m_hUpDate, 0);
-			CloseHandle(m_hUpDate);
 		}
 	}
 
@@ -4492,6 +4526,25 @@ void CMainDlg::OnCancel()
 
 		// 保存配置文件
 		::WritePrivateProfileString(_T("Position"), _T("WindowPosition"), Position, _T("./Setting.ini"));
+	}
+
+	// 子文档保存判断
+	for(int i=0; i<(int)m_Tab.m_DocumentTab.size(); i++)
+	{
+		if(m_Tab.m_DocumentTab.at(i)->IsChanged)
+		{
+			// 设置当前标签选中
+			m_Tab.SetCurSel(i);
+			m_Tab.OnLButtonDown(NULL, NULL);
+
+			if( MessageBox(m_Tab.m_DocumentTab.at(i)->FileName + _T("方法已被修改, 是否保存方法?"), _T("检测到修改"), MB_ICONQUESTION | MB_YESNO) == IDYES )
+			{
+				// 保存
+				IsCancel = TRUE;
+				OnOK();
+				return;
+			}
+		}
 	}
 
 	CDialogEx::OnCancel();

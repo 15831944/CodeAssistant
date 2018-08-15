@@ -22,6 +22,7 @@ public:
 	// 全局变量
 	CString Parameter, Error;
 	CString UserName, Password;
+	CToolTipCtrl m_toolTips;
 
 // 对话框数据
 	enum { IDD = IDD_REGISTER_DIALOG };

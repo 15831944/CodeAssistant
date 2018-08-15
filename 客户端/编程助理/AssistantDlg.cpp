@@ -13,6 +13,7 @@ IMPLEMENT_DYNAMIC(CAssistantDlg, CDialogEx)
 CAssistantDlg::CAssistantDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CAssistantDlg::IDD, pParent)
 {
+	IsCreated = FALSE;
 }
 
 CAssistantDlg::~CAssistantDlg()
@@ -98,6 +99,28 @@ BOOL CAssistantDlg::OnInitDialog()
 	::RegisterHotKey(m_hWnd, ID_HOTKEY_UP,    MOD_ALT, VK_UP);
 	::RegisterHotKey(m_hWnd, ID_HOTKEY_DOWN,  MOD_ALT, VK_DOWN);
 
+	// 提示框
+	m_toolTips.Create(this, TTS_ALWAYSTIP|WS_POPUP);
+	m_toolTips.Activate(TRUE);
+
+	m_toolTips.AddTool(GetDlgItem(IDC_CODE_COMBO),   _T("显示当前分类所有方法。\nAlt + 方法首字母快速查找方法。\nAtl + 上下方向键切换当前类别。\nAtl + 左右方向键切换当前类型。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_HIDE_CHECK),   _T("选中此项后编码助理将自动隐藏。\n按Atl+方法首字母调出。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_FOLLOW_CHECK), _T("选中此项后隐藏的编码助理将跟随鼠标的位置出现。\n若没有自动隐藏, 不建议使用此功能。"));
+	m_toolTips.AddTool(GetDlgItem(IDOK),             _T("读取目标方法并在光标位置插入。"));
+	m_toolTips.AddTool(GetDlgItem(IDCANCEL),         _T("隐藏快速编码助理。\n隐藏后可用Atl+方法首字母调出。"));
+
+	//文字颜色
+	m_toolTips.SetTipTextColor(RGB(0,0,255));
+
+	//鼠标指向多久后显示提示，毫秒
+	m_toolTips.SetDelayTime(TTDT_INITIAL, 10); 
+
+	//鼠标保持指向，提示显示多久，毫秒
+	m_toolTips.SetDelayTime(TTDT_AUTOPOP, 9000000);
+
+	//设定显示宽度，超长内容自动换行
+	m_toolTips.SetMaxTipWidth(300);
+
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
 }
@@ -105,7 +128,9 @@ BOOL CAssistantDlg::OnInitDialog()
 
 BOOL CAssistantDlg::PreTranslateMessage(MSG* pMsg)
 {
-	// TODO: 在此添加专用代码和/或调用基类
+	// 功能提示
+	if(GetPrivateProfileInt(_T("Setting"), _T("Tip"), 0, _T("./Setting.ini")) == 1)
+		m_toolTips.RelayEvent(pMsg); // 接受消息响应
 
 	return CDialogEx::PreTranslateMessage(pMsg);
 }
@@ -121,7 +146,8 @@ UINT CAssistantDlg::Operate(LPVOID pParam)
 		Sleep(100);
 	}
 
-	pWnd->OnCancel();
+	pWnd->ShowWindow(SW_HIDE);
+	AfxGetApp()->GetMainWnd()->ShowWindow(SW_RESTORE);
 	return TRUE;
 }
 

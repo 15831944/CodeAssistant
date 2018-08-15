@@ -133,9 +133,31 @@ void CTabSheet::OnRButtonDown(UINT nFlags, CPoint point)
 
 	//得到当前用户点击的标签页的ID
 	int curSelect = GetCurSel();
+
+	// 赋值
+	m_selTabID = curSelect;
+
+	// 判断值
 	if (-1 == curSelect)
 	{
 		return;
+	}
+
+	// 修改判断
+	if(m_DocumentTab.at(curSelect)->IsChanged)
+	{
+		if( MessageBox(m_DocumentTab.at(curSelect)->FileName + _T("方法已被修改, 是否保存方法?"), _T("检测到修改"), MB_ICONQUESTION | MB_YESNO) == IDYES )
+		{
+			// 重置值
+			m_DocumentTab.at(curSelect)->IsChanged = false;
+
+			// 通知主窗口
+			::SendMessage(theApp.m_pMainWnd->GetSafeHwnd(), WM_CHILDMESSAGE, 32, 0);
+			return;
+		}
+
+		// 重置值
+		m_DocumentTab.at(curSelect)->IsChanged = false;
 	}
 
 	//得到当前标签页的位置以便设置对话框显示的位置
@@ -158,6 +180,7 @@ void CTabSheet::OnRButtonDown(UINT nFlags, CPoint point)
 		m_dlgWnd[0]->FileType  = _T("");
 		m_dlgWnd[0]->FilePath  = _T("");
 		m_dlgWnd[0]->FileName  = _T("新方法");
+		m_dlgWnd[0]->IsChanged = FALSE;
 	}
 	else
 	{

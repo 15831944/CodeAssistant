@@ -14,8 +14,8 @@ IMPLEMENT_DYNAMIC(CDocumentDlg, CDialogEx)
 CDocumentDlg::CDocumentDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CDocumentDlg::IDD, pParent)
 {
-	IsOutFunction = FALSE;
-	FileClass = FileType = FilePath = FileName = _T("");
+	IsOutFunction = IsChanged = FALSE;
+	FileClass = FileType = FilePath = FileName = FileText = _T("");
 }
 
 CDocumentDlg::~CDocumentDlg()
@@ -44,41 +44,41 @@ BOOL CDocumentDlg::OnInitDialog()
 	CDialogEx::OnInitDialog();
 
 	// Edit
-	m_Edit.SubclassDlgItem(IDC_CODE_RICHEDIT, this);
+	//m_Edit.SubclassDlgItem(IDC_CODE_RICHEDIT, this);
 
 	// 设置 ENM_CHANGE (响应Change事件)
 	//EM_SETEVENTMASK
-	long lMask = m_Edit.GetEventMask();
-	lMask |= ENM_CHANGE;
-	lMask &= ~ENM_PROTECTED;
-	m_Edit.SetEventMask(lMask);
+	//long lMask = m_Edit.GetEventMask();
+	//lMask |= ENM_CHANGE;
+	//lMask &= ~ENM_PROTECTED;
+	//m_Edit.SetEventMask(lMask);
 
 
-	// 格式
-	CHARFORMAT cf;
-	ZeroMemory(&cf, sizeof(CHARFORMAT));
-	cf.cbSize = sizeof(CHARFORMAT);
-	cf.dwMask = CFM_BOLD | CFM_COLOR | CFM_FACE | CFM_ITALIC | CFM_SIZE | CFM_UNDERLINE;
+	//// 格式
+	//CHARFORMAT cf;
+	//ZeroMemory(&cf, sizeof(CHARFORMAT));
+	//cf.cbSize = sizeof(CHARFORMAT);
+	//cf.dwMask = CFM_BOLD | CFM_COLOR | CFM_FACE | CFM_ITALIC | CFM_SIZE | CFM_UNDERLINE;
 
-	cf.dwEffects&=~CFE_BOLD;      //设置粗体，取消用cf.dwEffects&=~CFE_BOLD;
-	cf.dwEffects&=~CFE_ITALIC;    //设置斜体，取消用cf.dwEffects&=~CFE_ITALIC;
-	cf.dwEffects&=~CFE_UNDERLINE; //设置斜体，取消用cf.dwEffects&=~CFE_UNDERLINE;
-	cf.crTextColor = RGB(0,0,0);  //设置颜色
-	cf.yHeight = 14 * 14;         //设置高度
-	strcpy_s(cf.szFaceName, 1024 ,_T("宋体"));//设置字体
-	m_Edit.SetDefaultCharFormat(cf);
+	//cf.dwEffects&=~CFE_BOLD;      //设置粗体，取消用cf.dwEffects&=~CFE_BOLD;
+	//cf.dwEffects&=~CFE_ITALIC;    //设置斜体，取消用cf.dwEffects&=~CFE_ITALIC;
+	//cf.dwEffects&=~CFE_UNDERLINE; //设置斜体，取消用cf.dwEffects&=~CFE_UNDERLINE;
+	//cf.crTextColor = RGB(0,0,0);  //设置颜色
+	//cf.yHeight = 14 * 14;         //设置高度
+	//strcpy_s(cf.szFaceName, 1024 ,_T("宋体"));//设置字体
+	//m_Edit.SetDefaultCharFormat(cf);
 
-	::SendMessage(m_Edit, EM_SETLANGOPTIONS, 0, 0);
+	//::SendMessage(m_Edit, EM_SETLANGOPTIONS, 0, 0);
 
-	//超链接
-	DWORD mask =::SendMessage(m_Edit.m_hWnd,EM_GETEVENTMASK, 0, 0);  
-    mask = mask | ENM_LINK  | ENM_MOUSEEVENTS | ENM_SCROLLEVENTS |ENM_KEYEVENTS;  
-    ::SendMessage(m_Edit.m_hWnd,EM_SETEVENTMASK, 0, mask);  
-    ::SendMessage(m_Edit.m_hWnd,EM_AUTOURLDETECT, true, 0);
+	////超链接
+	//DWORD mask =::SendMessage(m_Edit.m_hWnd,EM_GETEVENTMASK, 0, 0);  
+ //   mask = mask | ENM_LINK  | ENM_MOUSEEVENTS | ENM_SCROLLEVENTS |ENM_KEYEVENTS;  
+ //   ::SendMessage(m_Edit.m_hWnd,EM_SETEVENTMASK, 0, mask);  
+ //   ::SendMessage(m_Edit.m_hWnd,EM_AUTOURLDETECT, true, 0);
 
-	// 自动换行
-	if(GetPrivateProfileInt(_T("Setting"), _T("Line"), 0, _T("./Setting.ini")) == 1)
-		m_Edit.SetTargetDevice(NULL,0);
+	//// 自动换行
+	//if(GetPrivateProfileInt(_T("Setting"), _T("Line"), 0, _T("./Setting.ini")) == 1)
+	//	m_Edit.SetTargetDevice(NULL,0);
 
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
@@ -323,6 +323,20 @@ void CDocumentDlg::OnOK()
 }
 
 
+void CDocumentDlg::OnSetText(CString Target)
+{
+	// 设置文本
+	m_Edit.StreamInFromResource(Target + _T(".rtf"), _T("SF_RTF"));
+
+	// 获取文本
+	CString CurText;
+	m_Edit.GetWindowText(CurText);
+
+	// 赋值
+	FileText  = CurText;
+}
+
+
 void CDocumentDlg::OnRichEditLink(NMHDR*in_pNotifyHeader, LRESULT* out_pResult )  
 {
     ENLINK* l_pENLink =(ENLINK*)in_pNotifyHeader;
@@ -356,6 +370,39 @@ void CDocumentDlg::OnRichEditLink(NMHDR*in_pNotifyHeader, LRESULT* out_pResult )
 
 void CDocumentDlg::OnChangeCodeRichedit()
 {
+	CString CurText;
+	m_Edit.GetWindowText(CurText);
+
+	if(!FileText.IsEmpty())
+	{
+		if(CurText != FileText)
+		{
+			// 表明内容已被修改
+			IsChanged = TRUE;
+		}
+		else
+		{
+			// 表明内容没有修改
+			IsChanged = FALSE;
+		}
+	}
+	else if(FileName == _T("新方法"))
+	{
+		if(CurText != FileText)
+		{
+			// 表明内容已被修改
+			IsChanged = TRUE;
+		}
+		else
+		{
+			// 表明内容没有修改
+			IsChanged = FALSE;
+		}
+	}
+
+	// 赋值
+	FileText  = CurText;
+
 	// 通知主窗口
 	::SendMessage(AfxGetApp()->GetMainWnd()->GetSafeHwnd(), WM_CHILDMESSAGE, 4, 0);
 }

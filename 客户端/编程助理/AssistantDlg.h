@@ -57,6 +57,7 @@ public:
 	CButton m_Hide;
 	CButton m_Follow;
 	CAutoCombox m_ComboBox;
+	CToolTipCtrl m_toolTips;
 	CString FileClass, FileType, FilePath;
 
 	// 工作者线程

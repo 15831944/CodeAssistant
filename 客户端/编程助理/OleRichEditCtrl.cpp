@@ -79,6 +79,39 @@ void COleRichEditCtrl::PreSubclassWindow()
 	// 启动定时器，用于更新动画
 	SetTimer(FRM_TIMER_ID, MIN_FRM_DELAY, NULL);
 
+	// 设置 ENM_CHANGE (响应Change事件)
+	//EM_SETEVENTMASK
+	long lMask = GetEventMask();
+	lMask |= ENM_CHANGE;
+	lMask &= ~ENM_PROTECTED;
+	SetEventMask(lMask);
+
+	// 格式
+	CHARFORMAT cf;
+	ZeroMemory(&cf, sizeof(CHARFORMAT));
+	cf.cbSize = sizeof(CHARFORMAT);
+	cf.dwMask = CFM_BOLD | CFM_COLOR | CFM_FACE | CFM_ITALIC | CFM_SIZE | CFM_UNDERLINE;
+
+	cf.dwEffects&=~CFE_BOLD;      //设置粗体，取消用cf.dwEffects&=~CFE_BOLD;
+	cf.dwEffects&=~CFE_ITALIC;    //设置斜体，取消用cf.dwEffects&=~CFE_ITALIC;
+	cf.dwEffects&=~CFE_UNDERLINE; //设置斜体，取消用cf.dwEffects&=~CFE_UNDERLINE;
+	cf.crTextColor = RGB(0,0,0);  //设置颜色
+	cf.yHeight = 14 * 14;         //设置高度
+	//strcpy_s(cf.szFaceName, 1024 ,_T("宋体"));//设置字体
+	SetDefaultCharFormat(cf);
+
+	::SendMessage(m_hWnd,EM_SETLANGOPTIONS, 0, 0);
+
+	//超链接
+	DWORD mask =::SendMessage(m_hWnd,EM_GETEVENTMASK, 0, 0);  
+    mask = mask | ENM_LINK  | ENM_MOUSEEVENTS | ENM_SCROLLEVENTS |ENM_KEYEVENTS;  
+    ::SendMessage(m_hWnd,EM_SETEVENTMASK, 0, mask);  
+    ::SendMessage(m_hWnd,EM_AUTOURLDETECT, true, 0);
+
+	// 自动换行
+	if(GetPrivateProfileInt(_T("Setting"), _T("Line"), 0, _T("./Setting.ini")) == 1)
+		SetTargetDevice(NULL,0);
+
 	// base class first
 	CRichEditCtrl::PreSubclassWindow();	
 

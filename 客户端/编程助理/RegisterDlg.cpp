@@ -43,6 +43,30 @@ BOOL CRegisterDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
 
+	// 提示框
+	m_toolTips.Create(this, TTS_ALWAYSTIP|WS_POPUP);
+	m_toolTips.Activate(TRUE);
+
+	// 提示文字
+	m_toolTips.AddTool(GetDlgItem(IDC_ACCOUNT_EDIT),  _T("输入您的账户名称。\n不做限制, 除了标点符号均可。\n作为登陆账户。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_PASSWORD_EDIT), _T("输入您的账户密码。\n不做限制, 除了标点符号均可。\n作为登陆密码。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_CONFIRM_EDIT),  _T("再次输入账户密码。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_EMAIL_EDIT),    _T("输入您常用的邮箱。\n同样可用于云端账户登陆。"));
+	m_toolTips.AddTool(GetDlgItem(IDOK),              _T("使用输入的账户信息注册助理云端账户。"));
+	m_toolTips.AddTool(GetDlgItem(IDCANCEL),          _T("关闭注册窗口。"));
+
+	//文字颜色
+	m_toolTips.SetTipTextColor(RGB(0,0,255));
+
+	//鼠标指向多久后显示提示，毫秒
+	m_toolTips.SetDelayTime(TTDT_INITIAL, 10); 
+
+	//鼠标保持指向，提示显示多久，毫秒
+	m_toolTips.SetDelayTime(TTDT_AUTOPOP, 9000000);
+
+	//设定显示宽度，超长内容自动换行
+	m_toolTips.SetMaxTipWidth(300);
+
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
 }
@@ -50,6 +74,10 @@ BOOL CRegisterDlg::OnInitDialog()
 
 BOOL CRegisterDlg::PreTranslateMessage(MSG* pMsg)
 {
+	// 功能提示
+	if(GetPrivateProfileInt(_T("Setting"), _T("Tip"), 0, _T("./Setting.ini")) == 1)
+		m_toolTips.RelayEvent(pMsg); // 接受消息响应
+
 	return CDialogEx::PreTranslateMessage(pMsg);
 }
 
@@ -87,7 +115,7 @@ UINT CRegisterDlg::Register(LPVOID pParam)
 				}
 				else
 				{
-					pWnd->Error = _T("注册失败，请检查注册信息。");
+					pWnd->Error = _T("注册失败，请检查注册信息：") + theApp.Convert(RecvData.GetBuffer(0));
 					pWnd->PostMessage(WM_COMMAND, 101);
 				}
 			}

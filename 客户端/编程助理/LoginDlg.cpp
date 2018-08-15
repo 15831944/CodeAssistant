@@ -76,7 +76,6 @@ BOOL CLoginDlg::OnInitDialog()
 			AfxMessageBox(_T("无法读取用户密码!"));
 		}
 		
-
 		if(!UserName.IsEmpty())
 		{
 			GetDlgItem(IDC_ACCOUNT_EDIT)->SetWindowText(UserName);
@@ -94,6 +93,30 @@ BOOL CLoginDlg::OnInitDialog()
 		}
 	}
 
+	// 提示框
+	m_toolTips.Create(this, TTS_ALWAYSTIP|WS_POPUP);
+	m_toolTips.Activate(TRUE);
+
+	// 提示文字
+	m_toolTips.AddTool(GetDlgItem(IDC_ACCOUNT_EDIT),    _T("输入您的账户名称。\n注册邮箱也可用于登陆。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_PASSWORD_EDIT),   _T("输入您的账户密码。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_REMEMBER_CHECK),  _T("选中此项将自动保存账户名称与账户密码。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_AUTO_CHECK),      _T("选中此项将自动使用保存的账户信息登陆。\n若没有保存的信息无操作。"));
+	m_toolTips.AddTool(GetDlgItem(IDOK),                _T("使用输入的账户信息登陆助理云端。"));
+	m_toolTips.AddTool(GetDlgItem(IDC_REGISTER_BUTTON), _T("注册用于登陆助理云端的账户信息。"));
+	m_toolTips.AddTool(GetDlgItem(IDCANCEL),            _T("关闭登陆窗口。"));
+
+	//文字颜色
+	m_toolTips.SetTipTextColor(RGB(0,0,255));
+
+	//鼠标指向多久后显示提示，毫秒
+	m_toolTips.SetDelayTime(TTDT_INITIAL, 10); 
+
+	//鼠标保持指向，提示显示多久，毫秒
+	m_toolTips.SetDelayTime(TTDT_AUTOPOP, 9000000);
+
+	//设定显示宽度，超长内容自动换行
+	m_toolTips.SetMaxTipWidth(300);
 
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
@@ -102,6 +125,10 @@ BOOL CLoginDlg::OnInitDialog()
 
 BOOL CLoginDlg::PreTranslateMessage(MSG* pMsg)
 {
+	// 功能提示
+	if(GetPrivateProfileInt(_T("Setting"), _T("Tip"), 0, _T("./Setting.ini")) == 1)
+		m_toolTips.RelayEvent(pMsg); // 接受消息响应
+
 	return CDialogEx::PreTranslateMessage(pMsg);
 }
 
